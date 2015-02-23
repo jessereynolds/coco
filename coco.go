@@ -116,6 +116,9 @@ func main() {
 	raw := make(chan collectd.Packet)
 	filtered := make(chan collectd.Packet)
 	//go Listen("127.0.0.1:25826", c, "/usr/share/collectd/types.db")
+	// FIXME(lindsay): check this argument exists. check file in argument exists
+	// FIXME(lindsay): do proper argument parsing with kingpin
+	// FIXME(lindsay): do proper config parsing with toml
 	types := os.Args[1]
 	go Listen("0.0.0.0:25826", raw, types)
 	go Filter(raw, filtered, servers)
