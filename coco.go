@@ -59,8 +59,10 @@ func Listen(addr string, c chan collectd.Packet, typesdb string) {
 				hostnames = append(hostnames, p.Hostname)
 			}
 		}
-		fmt.Printf("hostnames: %d, packets: %d\n", len(hostnames), len(*packets))
-
+//		fmt.Printf("hostnames: %d, packets: %d\n", len(hostnames), len(*packets))
+		if len(hostnames) > 1 {
+			fmt.Printf("hostnames: %+v\n", hostnames)
+		}
 
 		if err != nil {
 			log.Println("error: Failed to receive packet", err)
