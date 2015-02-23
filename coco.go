@@ -86,7 +86,7 @@ func Filter(raw chan collectd.Packet, filtered chan collectd.Packet, servers map
 			filtered <- packet
 		} else {
 			servers["filtered"][name] = time.Now().Unix()
-			fmt.Printf("Filtering %s\n", name)
+			fmt.Fprintf(os.Stderr, "Filtering %s\n", name)
 		}
 	}
 }
