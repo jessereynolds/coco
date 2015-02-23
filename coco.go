@@ -44,31 +44,6 @@ func Listen(addr string, c chan collectd.Packet, typesdb string) {
 		}
 
 		packets, err := collectd.Packets(buf[0:n], types)
-		//fmt.Printf("%+v\n\n", packets)
-
-		var hostnames []string
-		for _, p := range *packets {
-			included := false
-			for _, h := range hostnames {
-				if p.Hostname == h {
-					included = true
-					break
-				}
-			}
-			if included == false {
-				hostnames = append(hostnames, p.Hostname)
-			}
-		}
-//		fmt.Printf("hostnames: %d, packets: %d\n", len(hostnames), len(*packets))
-		if len(hostnames) > 1 {
-			fmt.Printf("hostnames: %+v\n", hostnames)
-		}
-
-		if err != nil {
-			log.Println("error: Failed to receive packet", err)
-			continue
-		}
-
 		for _, p := range *packets {
 			c <- p
 		}
