@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"strings"
@@ -87,7 +86,6 @@ func Filter(raw chan collectd.Packet, filtered chan collectd.Packet, servers map
 		} else {
 			servers["filtered"][name] = time.Now().Unix()
 			// FIXME(lindsay): log to stdout or a file, based on config setting
-			//fmt.Fprintf(os.Stderr, "Filtering %s\n", name)
 		}
 	}
 }
@@ -106,7 +104,6 @@ func Send(targets []string, filtered chan collectd.Packet, servers map[string]ma
 			log.Fatal(err)
 		}
 		name := metricName(packet)
-		//fmt.Printf("%s => %s\n", name, server)
 		servers[server][name] = time.Now().Unix()
 	}
 }
