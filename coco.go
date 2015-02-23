@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"strings"
@@ -43,6 +44,8 @@ func Listen(addr string, c chan collectd.Packet, typesdb string) {
 		}
 
 		packets, err := collectd.Packets(buf[0:n], types)
+		fmt.Printf("%+v\n\n", packets)
+
 		if err != nil {
 			log.Println("error: Failed to receive packet", err)
 			continue
