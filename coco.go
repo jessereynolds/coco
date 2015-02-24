@@ -5,11 +5,13 @@ import (
 	"log"
 	"net"
 	"strings"
+	"bytes"
 	"regexp"
 	"time"
 	"os"
 	"github.com/go-martini/martini"
 	"encoding/json"
+	"encoding/binary"
 	"net/http"
 	consistent "github.com/stathat/consistent"
 	collectd "github.com/kimor79/gollectd"
@@ -38,6 +40,7 @@ func Listen(addr string, c chan collectd.Packet, typesdb string) {
 		buf := make([]byte, 1452)
 
 		n, err := conn.Read(buf[:])
+		fmt.Printf("%+v\n", buf[0:n])
 		if err != nil {
 			log.Println("error: Failed to receive packet", err)
 			continue
@@ -101,7 +104,87 @@ func Send(targets []string, filtered chan collectd.Packet, servers map[string]ma
 		}
 		name := metricName(packet)
 		servers[server][name] = time.Now().Unix()
+
+		fmt.Printf("%+v\n", Encode(packet))
 	}
+}
+
+func Encode(packet collectd.Packet) ([]byte) {
+	fmt.Printf("%+v\n", packet)
+
+	buf := make([]byte, 0)
+	null := []byte("\x00")
+
+	// Hostname
+	hostBytes := []byte(packet.Hostname)
+	buf = append(buf, byte(0))
+	buf = append(buf, collectd.ParseHost)
+	buf = append(buf, byte(0))
+	buf = append(buf, byte(len(hostBytes) + 5))
+	buf = append(buf, hostBytes...)
+	buf = append(buf, null...) // null bytes for string parts
+
+	// Time
+	timeBytes := new(bytes.Buffer)
+	binary.Write(timeBytes, binary.BigEndian, packet.Time)
+	buf = append(buf, byte(0))
+	buf = append(buf, collectd.ParseTime)
+	buf = append(buf, byte(0))
+	buf = append(buf, byte(len(timeBytes.Bytes()) + 4))
+	buf = append(buf, timeBytes.Bytes()...)
+
+	// Interval
+	intervalBytes := new(bytes.Buffer)
+	binary.Write(intervalBytes, binary.BigEndian, packet.Interval)
+	buf = append(buf, byte(0))
+	buf = append(buf, collectd.ParseInterval)
+	buf = append(buf, byte(0))
+	buf = append(buf, byte(len(intervalBytes.Bytes()) + 4))
+	buf = append(buf, intervalBytes.Bytes()...)
+
+	// Plugin
+	pluginBytes := []byte(packet.Plugin)
+	buf = append(buf, byte(0))
+	buf = append(buf, collectd.ParsePlugin)
+	buf = append(buf, byte(0))
+	buf = append(buf, byte(len(pluginBytes) + 5))
+	buf = append(buf, pluginBytes...)
+	buf = append(buf, null...) // null bytes for string parts
+
+	// PluginInstance
+	if len(packet.PluginInstance) > 0 {
+		pluginInstanceBytes := []byte(packet.PluginInstance)
+		buf = append(buf, byte(0))
+		buf = append(buf, collectd.ParsePluginInstance)
+		buf = append(buf, byte(0))
+		buf = append(buf, byte(len(pluginInstanceBytes) + 5))
+		buf = append(buf, pluginInstanceBytes...)
+		buf = append(buf, null...) // null bytes for string parts
+	}
+
+	// Type
+	typeBytes := []byte(packet.Type)
+	buf = append(buf, byte(0))
+	buf = append(buf, collectd.ParseType)
+	buf = append(buf, byte(0))
+	buf = append(buf, byte(len(typeBytes) + 5))
+	buf = append(buf, typeBytes...)
+	buf = append(buf, null...) // null bytes for string parts
+
+	// TypeInstance
+	if len(packet.TypeInstance) > 0 {
+		typeInstanceBytes := []byte(packet.TypeInstance)
+		buf = append(buf, byte(0))
+		buf = append(buf, collectd.ParseTypeInstance)
+		buf = append(buf, byte(0))
+		buf = append(buf, byte(len(typeInstanceBytes) + 5))
+		buf = append(buf, typeInstanceBytes...)
+		buf = append(buf, null...) // null bytes for string parts
+	}
+
+	// Values
+
+	return buf
 }
 
 func main() {
@@ -126,5 +209,6 @@ func main() {
         })
     })
 
+	fmt.Println("running...")
 	log.Fatal(http.ListenAndServe(":9090", m))
 }
