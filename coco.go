@@ -110,79 +110,82 @@ func Send(targets []string, filtered chan collectd.Packet, servers map[string]ma
 }
 
 func Encode(packet collectd.Packet) ([]byte) {
-	fmt.Printf("%+v\n", packet)
+	// String parts have a length of 5, because there is a terminating null byte
+	// Numeric parts have a length of 4, because there is no terminating null byte
+	//fmt.Printf("%+v\n", packet)
 
 	buf := make([]byte, 0)
 	null := []byte("\x00")
 
-	// Hostname
+	// Hostname - String part
 	hostBytes := []byte(packet.Hostname)
-	buf = append(buf, byte(0))
-	buf = append(buf, collectd.ParseHost)
-	buf = append(buf, byte(0))
-	buf = append(buf, byte(len(hostBytes) + 5))
+	buf = append(buf, []byte{0, collectd.ParseHost}...)
+	buf = append(buf, []byte{0, byte(len(hostBytes) + 5)}...)
 	buf = append(buf, hostBytes...)
 	buf = append(buf, null...) // null bytes for string parts
 
-	// Time
+	// Time - Number part
 	timeBytes := new(bytes.Buffer)
 	binary.Write(timeBytes, binary.BigEndian, packet.Time)
-	buf = append(buf, byte(0))
-	buf = append(buf, collectd.ParseTime)
-	buf = append(buf, byte(0))
-	buf = append(buf, byte(len(timeBytes.Bytes()) + 4))
+	buf = append(buf, []byte{0, collectd.ParseTime}...)
+	buf = append(buf, []byte{0, byte(len(timeBytes.Bytes()) + 4)}...)
 	buf = append(buf, timeBytes.Bytes()...)
 
-	// Interval
+	// FIXME(lindsay): add encoding of TimeHR
+
+	// Interval - Number part
 	intervalBytes := new(bytes.Buffer)
 	binary.Write(intervalBytes, binary.BigEndian, packet.Interval)
-	buf = append(buf, byte(0))
-	buf = append(buf, collectd.ParseInterval)
-	buf = append(buf, byte(0))
-	buf = append(buf, byte(len(intervalBytes.Bytes()) + 4))
+	buf = append(buf, []byte{0, collectd.ParseInterval}...)
+	buf = append(buf, []byte{0, byte(len(intervalBytes.Bytes()) + 4)}...)
 	buf = append(buf, intervalBytes.Bytes()...)
 
-	// Plugin
+	// FIXME(lindsay): add encoding of IntervalHR
+
+	// Plugin - String part
 	pluginBytes := []byte(packet.Plugin)
-	buf = append(buf, byte(0))
-	buf = append(buf, collectd.ParsePlugin)
-	buf = append(buf, byte(0))
-	buf = append(buf, byte(len(pluginBytes) + 5))
+	buf = append(buf, []byte{0, collectd.ParsePlugin}...)
+	buf = append(buf, []byte{0, byte(len(pluginBytes) + 5)}...)
 	buf = append(buf, pluginBytes...)
 	buf = append(buf, null...) // null bytes for string parts
 
-	// PluginInstance
+	// PluginInstance - String part
 	if len(packet.PluginInstance) > 0 {
 		pluginInstanceBytes := []byte(packet.PluginInstance)
-		buf = append(buf, byte(0))
-		buf = append(buf, collectd.ParsePluginInstance)
-		buf = append(buf, byte(0))
-		buf = append(buf, byte(len(pluginInstanceBytes) + 5))
+		buf = append(buf, []byte{0, collectd.ParsePluginInstance}...)
+		buf = append(buf, []byte{0, byte(len(pluginInstanceBytes) + 5)}...)
 		buf = append(buf, pluginInstanceBytes...)
 		buf = append(buf, null...) // null bytes for string parts
 	}
 
-	// Type
+	// Type - String part
 	typeBytes := []byte(packet.Type)
-	buf = append(buf, byte(0))
-	buf = append(buf, collectd.ParseType)
-	buf = append(buf, byte(0))
-	buf = append(buf, byte(len(typeBytes) + 5))
+	buf = append(buf, []byte{0, collectd.ParseType}...)
+	buf = append(buf, []byte{0, byte(len(typeBytes) + 5)}...)
 	buf = append(buf, typeBytes...)
 	buf = append(buf, null...) // null bytes for string parts
 
-	// TypeInstance
+	// TypeInstance - String part
 	if len(packet.TypeInstance) > 0 {
 		typeInstanceBytes := []byte(packet.TypeInstance)
-		buf = append(buf, byte(0))
-		buf = append(buf, collectd.ParseTypeInstance)
-		buf = append(buf, byte(0))
-		buf = append(buf, byte(len(typeInstanceBytes) + 5))
+		buf = append(buf, []byte{0, collectd.ParseTypeInstance}...)
+		buf = append(buf, []byte{0, byte(len(typeInstanceBytes) + 5)}...)
 		buf = append(buf, typeInstanceBytes...)
 		buf = append(buf, null...) // null bytes for string parts
 	}
 
-	// Values
+	// Values - Values part
+	for _, v := range packet.Values {
+		fmt.Printf("%+v\n", v)
+	}
+
+	/*
+	valuesBytes := new(bytes.Buffer)
+	binary.Write(valuesBytes, binary.BigEndian, packet.Values)
+	buf = append(buf, []byte{0, collectd.ParseValues}...)
+	buf = append(buf, []byte{0, byte(len(valuesBytes.Bytes()) + 4)}...)
+	buf = append(buf, timeBytes.Bytes()...)
+	*/
 
 	return buf
 }
