@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net"
 	"github.com/BurntSushi/toml"
+	"gopkg.in/alecthomas/kingpin.v1"
 	consistent "github.com/stathat/consistent"
 	collectd "github.com/kimor79/gollectd"
 )
@@ -244,10 +245,17 @@ type apiConfig struct {
 	Bind	string
 }
 
+var (
+	configPath	= kingpin.Arg("config", "Path to coco config").Default("coco.conf").String()
+)
+
 func main() {
+	kingpin.Version("1.0.0")
+	kingpin.Parse()
+
 	var config cocoConfig
-	if _, err := toml.DecodeFile("coco.sample.conf", &config); err != nil {
-		log.Fatalln(err)
+	if _, err := toml.DecodeFile(*configPath, &config); err != nil {
+		log.Fatalln("fatal:", err)
 		return
 	}
 
