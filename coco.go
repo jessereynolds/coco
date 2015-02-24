@@ -13,6 +13,8 @@ import (
 	"net"
 	"github.com/BurntSushi/toml"
 	"gopkg.in/alecthomas/kingpin.v1"
+	"expvar"
+	"fmt"
 	consistent "github.com/stathat/consistent"
 	collectd "github.com/kimor79/gollectd"
 )
@@ -47,6 +49,7 @@ func Listen(config listenConfig, c chan collectd.Packet, typesdb string) {
 
 		packets, err := collectd.Packets(buf[0:n], types)
 		for _, p := range *packets {
+			listenCounts.Add("packets", 1)
 			c <- p
 		}
 	}
@@ -81,8 +84,10 @@ func Filter(config filterConfig, raw chan collectd.Packet, filtered chan collect
 		re := regexp.MustCompile(config.Blacklist)
 		if (re.FindStringIndex(name) == nil) {
 			filtered <- packet
+			filterCounts.Add("accepted", 1)
 		} else {
 			servers["filtered"][name] = time.Now().Unix()
+			filterCounts.Add("rejected", 1)
 			// FIXME(lindsay): log to stdout or a file, based on config setting
 		}
 	}
@@ -128,6 +133,10 @@ func Send(config sendConfig, filtered chan collectd.Packet, servers map[string]m
 		// Dispatch the metric
 		payload := Encode(packet)
 		connections[server].Write(payload)
+
+		// Update counters
+		sendCounts.Add(server, 1)
+		sendCounts.Add("sent", 1)
 	}
 }
 
@@ -247,6 +256,9 @@ type apiConfig struct {
 
 var (
 	configPath	= kingpin.Arg("config", "Path to coco config").Default("coco.conf").String()
+	listenCounts = expvar.NewMap("listen")
+	filterCounts = expvar.NewMap("filter")
+	sendCounts = expvar.NewMap("send")
 )
 
 func main() {
@@ -262,7 +274,6 @@ func main() {
 	servers := map[string]map[string]int64{}
 	raw := make(chan collectd.Packet)
 	filtered := make(chan collectd.Packet)
-	// FIXME(lindsay): do proper argument parsing with kingpin
 	go Listen(config.Listen, raw, config.Listen.Typesdb)
 	go Filter(config.Filter, raw, filtered, servers)
 	go Send(config.Send, filtered, servers)
@@ -274,6 +285,20 @@ func main() {
             return data
         })
     })
+	// Implement expvars.expvarHandler in Martini.
+	m.Get("/debug/vars", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		fmt.Fprintf(w, "{\n")
+		first := true
+		expvar.Do(func(kv expvar.KeyValue) {
+			if !first {
+				fmt.Fprintf(w, ",\n")
+			}
+			first = false
+			fmt.Fprintf(w, "%q: %s", kv.Key, kv.Value)
+		})
+		fmt.Fprintf(w, "\n}\n")
+	})
 
 	log.Println("Booting web server...")
 	log.Fatal(http.ListenAndServe(":9090", m))
