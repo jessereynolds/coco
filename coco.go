@@ -231,6 +231,33 @@ func Encode(packet collectd.Packet) ([]byte) {
 	return buf
 }
 
+func Api(config apiConfig, servers map[string]map[string]int64) {
+    m := martini.Classic()
+    m.Group("/servers", func(r martini.Router) {
+        r.Get("", func() []byte {
+            data, _ := json.Marshal(servers)
+            return data
+        })
+    })
+	// Implement expvars.expvarHandler in Martini.
+	m.Get("/debug/vars", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		fmt.Fprintf(w, "{\n")
+		first := true
+		expvar.Do(func(kv expvar.KeyValue) {
+			if !first {
+				fmt.Fprintf(w, ",\n")
+			}
+			first = false
+			fmt.Fprintf(w, "%q: %s", kv.Key, kv.Value)
+		})
+		fmt.Fprintf(w, "\n}\n")
+	})
+
+	log.Printf("info: binding web server to %s", config.Bind)
+	log.Fatal(http.ListenAndServe(config.Bind, m))
+}
+
 type cocoConfig struct {
 	Listen	listenConfig
 	Filter	filterConfig
@@ -278,29 +305,5 @@ func main() {
 	go Listen(config.Listen, raw, config.Listen.Typesdb)
 	go Filter(config.Filter, raw, filtered, servers)
 	go Send(config.Send, filtered, servers)
-
-    m := martini.Classic()
-    m.Group("/servers", func(r martini.Router) {
-        r.Get("", func() []byte {
-            data, _ := json.Marshal(servers)
-            return data
-        })
-    })
-	// Implement expvars.expvarHandler in Martini.
-	m.Get("/debug/vars", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		fmt.Fprintf(w, "{\n")
-		first := true
-		expvar.Do(func(kv expvar.KeyValue) {
-			if !first {
-				fmt.Fprintf(w, ",\n")
-			}
-			first = false
-			fmt.Fprintf(w, "%q: %s", kv.Key, kv.Value)
-		})
-		fmt.Fprintf(w, "\n}\n")
-	})
-
-	log.Println("Booting web server...")
-	log.Fatal(http.ListenAndServe(":9090", m))
+	Api(config.Api, servers)
 }
