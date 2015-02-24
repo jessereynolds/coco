@@ -109,10 +109,10 @@ func Send(targets []string, filtered chan collectd.Packet, servers map[string]ma
 	}
 }
 
+// Encode a Packet into the collectd wire protocol format.
 func Encode(packet collectd.Packet) ([]byte) {
 	// String parts have a length of 5, because there is a terminating null byte
 	// Numeric parts have a length of 4, because there is no terminating null byte
-	//fmt.Printf("%+v\n", packet)
 
 	buf := make([]byte, 0)
 	null := []byte("\x00")
@@ -174,18 +174,27 @@ func Encode(packet collectd.Packet) ([]byte) {
 		buf = append(buf, null...) // null bytes for string parts
 	}
 
+	valuesBuf := make([]byte, 0)
 	// Values - Values part
 	for _, v := range packet.Values {
-		fmt.Printf("%+v\n", v)
+		valuesBuf = append(valuesBuf, byte(v.Type))
+
+		if v.Type == collectd.TypeGauge {
+			gaugeBytes := new(bytes.Buffer)
+			binary.Write(gaugeBytes, binary.LittleEndian, v.Value)
+			valuesBuf = append(valuesBuf, gaugeBytes.Bytes()...)
+		} else {
+			valueBytes := new(bytes.Buffer)
+			binary.Write(valueBytes, binary.BigEndian, v.Value)
+			valuesBuf = append(valuesBuf, valueBytes.Bytes()...)
+		}
 	}
 
-	/*
-	valuesBytes := new(bytes.Buffer)
-	binary.Write(valuesBytes, binary.BigEndian, packet.Values)
-	buf = append(buf, []byte{0, collectd.ParseValues}...)
-	buf = append(buf, []byte{0, byte(len(valuesBytes.Bytes()) + 4)}...)
-	buf = append(buf, timeBytes.Bytes()...)
-	*/
+	// type(2) + length(2) + number of values(2) == 6
+	buf = append(buf, []byte{0, collectd.ParseValues}...) // type
+	buf = append(buf, []byte{0, byte(len(valuesBuf) + 6)}...) // length
+	buf = append(buf, []byte{0, byte(len(packet.Values))}...) // number of values
+	buf = append(buf, valuesBuf...) // values themselves
 
 	return buf
 }
