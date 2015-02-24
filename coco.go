@@ -46,10 +46,11 @@ func Listen(config listenConfig, c chan collectd.Packet, typesdb string) {
 			log.Println("error: Failed to receive packet", err)
 			continue
 		}
+		listenCounts.Add("raw", 1)
 
 		packets, err := collectd.Packets(buf[0:n], types)
 		for _, p := range *packets {
-			listenCounts.Add("packets", 1)
+			listenCounts.Add("decoded", 1)
 			c <- p
 		}
 	}
@@ -136,7 +137,7 @@ func Send(config sendConfig, filtered chan collectd.Packet, servers map[string]m
 
 		// Update counters
 		sendCounts.Add(server, 1)
-		sendCounts.Add("sent", 1)
+		sendCounts.Add("total", 1)
 	}
 }
 
