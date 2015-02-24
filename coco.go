@@ -1,9 +1,7 @@
 package main
 
 import (
-	"fmt"
 	"log"
-	"net"
 	"strings"
 	"bytes"
 	"regexp"
@@ -13,6 +11,7 @@ import (
 	"encoding/json"
 	"encoding/binary"
 	"net/http"
+	"net"
 	consistent "github.com/stathat/consistent"
 	collectd "github.com/kimor79/gollectd"
 )
@@ -40,7 +39,6 @@ func Listen(addr string, c chan collectd.Packet, typesdb string) {
 		buf := make([]byte, 1452)
 
 		n, err := conn.Read(buf[:])
-		fmt.Printf("%+v\n", buf[0:n])
 		if err != nil {
 			log.Println("error: Failed to receive packet", err)
 			continue
@@ -90,22 +88,39 @@ func Filter(raw chan collectd.Packet, filtered chan collectd.Packet, servers map
 }
 
 func Send(targets []string, filtered chan collectd.Packet, servers map[string]map[string]int64) {
+	connections := make(map[string]net.Conn, len(targets))
 	con := consistent.New()
 	for _, t := range(targets) {
-		con.Add(t)
 		servers[t] = make(map[string]int64)
+		conn, err := net.Dial("udp", t)
+		if err != nil {
+			log.Printf("error: %s :: %+v", t, err)
+		} else {
+			// Only add the target to the hash if the connection can initially be established
+			connections[t] = conn
+			con.Add(t)
+		}
+	}
+
+	log.Println(connections, con.Members(), len(con.Members()))
+	if len(connections) == 0 {
+		log.Fatal("fatal: no valid write targets in consistent hash ring")
 	}
 
 	for {
 		packet := <- filtered
+		// Get the server we should forward the packet to
 		server, err := con.Get(packet.Hostname)
 		if err != nil {
 			log.Fatal(err)
 		}
+		// Update metadata
 		name := metricName(packet)
 		servers[server][name] = time.Now().Unix()
 
-		fmt.Printf("%+v\n", Encode(packet))
+		// Dispatch the metric
+		payload := Encode(packet)
+		connections[server].Write(payload)
 	}
 }
 
@@ -201,7 +216,7 @@ func Encode(packet collectd.Packet) ([]byte) {
 
 func main() {
 	servers := map[string]map[string]int64{}
-	targets := []string{"alice","bob","charlie","dee"}
+	targets := []string{"alice:25826","bob:25826","charlie:25826","dee:25826"}
 	raw := make(chan collectd.Packet)
 	filtered := make(chan collectd.Packet)
 	//go Listen("127.0.0.1:25826", c, "/usr/share/collectd/types.db")
@@ -221,6 +236,6 @@ func main() {
         })
     })
 
-	fmt.Println("running...")
+	log.Println("Booting web server...")
 	log.Fatal(http.ListenAndServe(":9090", m))
 }
