@@ -6,19 +6,19 @@ import (
 	"bytes"
 	"regexp"
 	"time"
-	"os"
 	"github.com/go-martini/martini"
 	"encoding/json"
 	"encoding/binary"
 	"net/http"
 	"net"
+	"github.com/BurntSushi/toml"
 	consistent "github.com/stathat/consistent"
 	collectd "github.com/kimor79/gollectd"
 )
 
 // Listen for collectd network packets, parse , and send them over a channel
-func Listen(addr string, c chan collectd.Packet, typesdb string) {
-	laddr, err := net.ResolveUDPAddr("udp", addr)
+func Listen(config listenConfig, c chan collectd.Packet, typesdb string) {
+	laddr, err := net.ResolveUDPAddr("udp", config.Bind)
 	if err != nil {
 		log.Fatalln("fatal: failed to resolve address", err)
 	}
@@ -71,13 +71,13 @@ func metricName(packet collectd.Packet) (string) {
 	return strings.Join(prts, "/")
 }
 
-func Filter(raw chan collectd.Packet, filtered chan collectd.Packet, servers map[string]map[string]int64) {
+func Filter(config filterConfig, raw chan collectd.Packet, filtered chan collectd.Packet, servers map[string]map[string]int64) {
 	servers["filtered"] = make(map[string]int64)
 	for {
 		packet := <- raw
 		name := metricName(packet)
 
-		re := regexp.MustCompile("/(vmem|irq|entropy|users)/")
+		re := regexp.MustCompile(config.Blacklist)
 		if (re.FindStringIndex(name) == nil) {
 			filtered <- packet
 		} else {
@@ -87,22 +87,28 @@ func Filter(raw chan collectd.Packet, filtered chan collectd.Packet, servers map
 	}
 }
 
-func Send(targets []string, filtered chan collectd.Packet, servers map[string]map[string]int64) {
+func Send(config sendConfig, filtered chan collectd.Packet, servers map[string]map[string]int64) {
+	targets := config.Targets
 	connections := make(map[string]net.Conn, len(targets))
 	con := consistent.New()
 	for _, t := range(targets) {
-		servers[t] = make(map[string]int64)
 		conn, err := net.Dial("udp", t)
 		if err != nil {
-			log.Printf("error: %s :: %+v", t, err)
+			log.Printf("error: send: %s: %+v", t, err)
 		} else {
 			// Only add the target to the hash if the connection can initially be established
+			re := regexp.MustCompile("^(127.|localhost)")
+			if re.FindStringIndex(conn.RemoteAddr().String()) != nil {
+				log.Printf("warning: %s is local. You may be looping metrics back to coco!", conn.RemoteAddr())
+				log.Printf("warning: dutifully adding %s anyway, but beware!", conn.RemoteAddr())
+			}
+			servers[t] = make(map[string]int64)
 			connections[t] = conn
 			con.Add(t)
 		}
 	}
 
-	log.Println(connections, con.Members(), len(con.Members()))
+	log.Printf("info: send: hash ring has %d members: %s", len(con.Members()), con.Members())
 	if len(connections) == 0 {
 		log.Fatal("fatal: no valid write targets in consistent hash ring")
 	}
@@ -214,19 +220,44 @@ func Encode(packet collectd.Packet) ([]byte) {
 	return buf
 }
 
+type cocoConfig struct {
+	Listen	listenConfig
+	Filter	filterConfig
+	Send	sendConfig
+	Api		apiConfig
+}
+
+type listenConfig struct {
+	Bind	string
+	Typesdb	string
+}
+
+type filterConfig struct {
+	Blacklist	string
+}
+
+type sendConfig struct {
+	Targets	[]string
+}
+
+type apiConfig struct {
+	Bind	string
+}
+
 func main() {
+	var config cocoConfig
+	if _, err := toml.DecodeFile("coco.sample.conf", &config); err != nil {
+		log.Fatalln(err)
+		return
+	}
+
 	servers := map[string]map[string]int64{}
-	targets := []string{"alice:25826","bob:25826","charlie:25826","dee:25826"}
 	raw := make(chan collectd.Packet)
 	filtered := make(chan collectd.Packet)
-	//go Listen("127.0.0.1:25826", c, "/usr/share/collectd/types.db")
-	// FIXME(lindsay): check this argument exists. check file in argument exists
 	// FIXME(lindsay): do proper argument parsing with kingpin
-	// FIXME(lindsay): do proper config parsing with toml
-	types := os.Args[1]
-	go Listen("0.0.0.0:25826", raw, types)
-	go Filter(raw, filtered, servers)
-	go Send(targets, filtered, servers)
+	go Listen(config.Listen, raw, config.Listen.Typesdb)
+	go Filter(config.Filter, raw, filtered, servers)
+	go Send(config.Send, filtered, servers)
 
     m := martini.Classic()
     m.Group("/servers", func(r martini.Router) {
