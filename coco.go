@@ -141,6 +141,36 @@ func Send(config sendConfig, filtered chan collectd.Packet, servers map[string]m
 	}
 }
 
+/*
+func Mirror(config sendConfig, mirror chan []byte) {
+	targets := config.Targets
+	connections := make([]net.Conn, len(targets))
+	for i, t := range(targets) {
+		conn, err := net.Dial("udp", t)
+		if err != nil {
+			log.Printf("error: send: %s: %+v", t, err)
+		} else {
+			connections[i] = conn
+		}
+	}
+
+	log.Printf("info: send: mirror list has %d members. %d", len(connections), targets)
+	if len(connections) == 0 {
+		log.Fatal("fatal: no valid write targets in mirror list")
+	}
+
+	for {
+		payload := <- mirror
+
+		fmt.Println("mirror", payload)
+
+		for _, server := range(connections) {
+			server.Write(payload)
+		}
+	}
+}
+*/
+
 // Encode a Packet into the collectd wire protocol format.
 func Encode(packet collectd.Packet) ([]byte) {
 	// String parts have a length of 5, because there is a terminating null byte
@@ -157,22 +187,39 @@ func Encode(packet collectd.Packet) ([]byte) {
 	buf = append(buf, null...) // null bytes for string parts
 
 	// Time - Number part
-	timeBytes := new(bytes.Buffer)
-	binary.Write(timeBytes, binary.BigEndian, packet.Time)
-	buf = append(buf, []byte{0, collectd.ParseTime}...)
-	buf = append(buf, []byte{0, byte(len(timeBytes.Bytes()) + 4)}...)
-	buf = append(buf, timeBytes.Bytes()...)
+	if packet.Time > 0 {
+		timeBytes := new(bytes.Buffer)
+		binary.Write(timeBytes, binary.BigEndian, packet.Time)
+		buf = append(buf, []byte{0, collectd.ParseTime}...)
+		buf = append(buf, []byte{0, byte(len(timeBytes.Bytes()) + 4)}...)
+		buf = append(buf, timeBytes.Bytes()...)
+	}
 
-	// FIXME(lindsay): add encoding of TimeHR
+	// TimeHR - Number part
+	if packet.TimeHR > 0 {
+		timeHRBytes := new(bytes.Buffer)
+		binary.Write(timeHRBytes, binary.BigEndian, packet.TimeHR)
+		buf = append(buf, []byte{0, collectd.ParseTimeHR}...)
+		buf = append(buf, []byte{0, byte(len(timeHRBytes.Bytes()) + 4)}...)
+		buf = append(buf, timeHRBytes.Bytes()...)
+	}
 
 	// Interval - Number part
-	intervalBytes := new(bytes.Buffer)
-	binary.Write(intervalBytes, binary.BigEndian, packet.Interval)
-	buf = append(buf, []byte{0, collectd.ParseInterval}...)
-	buf = append(buf, []byte{0, byte(len(intervalBytes.Bytes()) + 4)}...)
-	buf = append(buf, intervalBytes.Bytes()...)
+	if packet.Interval > 0 {
+		intervalBytes := new(bytes.Buffer)
+		binary.Write(intervalBytes, binary.BigEndian, packet.Interval)
+		buf = append(buf, []byte{0, collectd.ParseInterval}...)
+		buf = append(buf, []byte{0, byte(len(intervalBytes.Bytes()) + 4)}...)
+		buf = append(buf, intervalBytes.Bytes()...)
+	}
 
-	// FIXME(lindsay): add encoding of IntervalHR
+	if packet.IntervalHR > 0 {
+		intervalHRBytes := new(bytes.Buffer)
+		binary.Write(intervalHRBytes, binary.BigEndian, packet.IntervalHR)
+		buf = append(buf, []byte{0, collectd.ParseIntervalHR}...)
+		buf = append(buf, []byte{0, byte(len(intervalHRBytes.Bytes()) + 4)}...)
+		buf = append(buf, intervalHRBytes.Bytes()...)
+	}
 
 	// Plugin - String part
 	pluginBytes := []byte(packet.Plugin)
@@ -304,6 +351,7 @@ func main() {
 	filtered := make(chan collectd.Packet)
 	go Listen(config.Listen, raw)
 	go Filter(config.Filter, raw, filtered, servers)
+	//go Mirror(config.Send, mirror)
 	go Send(config.Send, filtered, servers)
 	Api(config.Api, servers)
 }
