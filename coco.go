@@ -133,7 +133,10 @@ func Send(config sendConfig, filtered chan collectd.Packet, servers map[string]m
 
 		// Dispatch the metric
 		payload := Encode(packet)
-		connections[server].Write(payload)
+		_, err = connections[server].Write(payload)
+		if err != nil {
+			log.Printf("error: send: %+v", err)
+		}
 
 		// Update counters
 		sendCounts.Add(server, 1)
