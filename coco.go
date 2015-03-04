@@ -253,11 +253,18 @@ func Encode(packet collectd.Packet) ([]byte) {
 		buf = append(buf, null...) // null bytes for string parts
 	}
 
-	valuesBuf := make([]byte, 0)
 	// Values - Values part
-	for _, v := range packet.Values {
-		valuesBuf = append(valuesBuf, byte(v.Type))
+	valuesBuf := make([]byte, 0)
 
+	// Write out the types
+	for _, v := range packet.Values {
+		valueTypeBytes := new(bytes.Buffer)
+		binary.Write(valueTypeBytes, binary.BigEndian, v.Type)
+		valuesBuf = append(valuesBuf, valueTypeBytes.Bytes()...)
+	}
+
+	// Then write out the values
+	for _, v := range packet.Values {
 		if v.Type == collectd.TypeGauge {
 			gaugeBytes := new(bytes.Buffer)
 			binary.Write(gaugeBytes, binary.LittleEndian, v.Value)
