@@ -112,6 +112,7 @@ func Send(config sendConfig, filtered chan collectd.Packet, servers map[string]m
 			servers[t] = make(map[string]int64)
 			connections[t] = conn
 			con.Add(t)
+			hashCounts.Set(t, &expvar.Int{})
 		}
 	}
 
@@ -139,6 +140,7 @@ func Send(config sendConfig, filtered chan collectd.Packet, servers map[string]m
 		}
 
 		// Update counters
+		hashCounts.Get(server).(*expvar.Int).Set(int64(len(servers[server])))
 		sendCounts.Add(server, 1)
 		sendCounts.Add("total", 1)
 	}
@@ -344,6 +346,7 @@ var (
 	listenCounts = expvar.NewMap("listen")
 	filterCounts = expvar.NewMap("filter")
 	sendCounts = expvar.NewMap("send")
+	hashCounts = expvar.NewMap("metrics")
 )
 
 func main() {
