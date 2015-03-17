@@ -34,71 +34,71 @@ func rehashed(a map[string]string, b map[string]string) float64 {
 */
 
 func TestRehashing(t *testing.T) {
-	sampleSize    := 1000000
-	ringSize	  := 1000
+	objectsSize := 1000000
+	sitesSize	:= 1000
 
-	for size := 1 ; size < ringSize ; size++ {
+	for sites := 1 ; sites < sitesSize ; sites++ {
 		// Re-initialize the mappings and consistent hasher
-		beforeMapping := make(map[string]string, sampleSize)
-		afterMapping  := make(map[string]string, sampleSize)
+		beforeMapping := make(map[string]string, objectsSize)
+		afterMapping  := make(map[string]string, objectsSize)
 		con  		  := consistent.New()
 
 		// Add members to the circle
-		for i := 0 ; i < size ; i++ {
+		for i := 0 ; i < sites ; i++ {
 			con.Add(string(i))
 		}
 
 		// Build before mapping
-		buildMapping(beforeMapping, sampleSize, con)
+		buildMapping(beforeMapping, objectsSize, con)
 
-		// Add 20% new members to the circle
-		for i := size ; float64(i) < (float64(size) / float64(100) * float64(120)) ; i++ {
+		// Add 50% new members to the circle
+		for i := sites ; float64(i) < (float64(sites) / float64(100) * float64(150)) ; i++ {
 			con.Add(string(i))
 		}
 
 		// Build after mapping
-		buildMapping(afterMapping, sampleSize, con)
+		buildMapping(afterMapping, objectsSize, con)
 
 		// Determine how many were rehashed
 		percentage := rehashed(beforeMapping, afterMapping)
 
 		// Print results
-		t.Logf("{\"ring_count\":%d,\"rehashed\":%f,\"replicas\":%d}\n", size, percentage, con.NumberOfReplicas)
+		t.Logf("{\"sites\":%d,\"rehashed\":%f,\"replicas\":%d}\n", sites, percentage, con.NumberOfReplicas)
 	}
 }
 
 func TestRehashingWithManyReplicas(t *testing.T) {
-	sampleSize    := 1000000
-	ringSize	  := 1000
+	objectsSize := 1000000
+	sitesSize	:= 1000
 	numberOfReplicas := 100
 
-	for size := 1 ; size < ringSize ; size++ {
+	for sites := 1 ; sites < sitesSize ; sites++ {
 		// Re-initialize the mappings and consistent hasher
-		beforeMapping := make(map[string]string, sampleSize)
-		afterMapping  := make(map[string]string, sampleSize)
+		beforeMapping := make(map[string]string, objectsSize)
+		afterMapping  := make(map[string]string, objectsSize)
 		con  		  := consistent.New()
 		con.NumberOfReplicas = numberOfReplicas
 
 		// Add members to the circle
-		for i := 0 ; i < size ; i++ {
+		for i := 0 ; i < sites ; i++ {
 			con.Add(string(i))
 		}
 
 		// Build before mapping
-		buildMapping(beforeMapping, sampleSize, con)
+		buildMapping(beforeMapping, objectsSize, con)
 
-		// Add 20% new members to the circle
-		for i := size ; float64(i) < (float64(size) / float64(100) * float64(120)) ; i++ {
+		// Add 50% new members to the circle
+		for i := sites ; float64(i) < (float64(sites) / float64(100) * float64(150)) ; i++ {
 			con.Add(string(i))
 		}
 
 		// Build after mapping
-		buildMapping(afterMapping, sampleSize, con)
+		buildMapping(afterMapping, objectsSize, con)
 
 		// Determine how many were rehashed
 		percentage := rehashed(beforeMapping, afterMapping)
 
 		// Print results
-		t.Logf("{\"ring_count\":%d,\"rehashed\":%f,\"replicas\":%d}\n", size, percentage, con.NumberOfReplicas)
+		t.Logf("{\"sites\":%d,\"rehashed\":%f,\"replicas\":%d}\n", sites, percentage, con.NumberOfReplicas)
 	}
 }
