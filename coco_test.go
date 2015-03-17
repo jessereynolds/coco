@@ -35,11 +35,14 @@ func rehashed(a map[string]string, b map[string]string) float64 {
 
 func TestRehashing(t *testing.T) {
 	sampleSize    := 1000000
-	beforeMapping := make(map[string]string, sampleSize)
-	afterMapping  := make(map[string]string, sampleSize)
-	con  		  := consistent.New()
+	ringSize	  := 1000
 
-	for size := 1 ; size < 1000 ; size++ {
+	for size := 1 ; size < ringSize ; size++ {
+		// Re-initialize the mappings and consistent hasher
+		beforeMapping := make(map[string]string, sampleSize)
+		afterMapping  := make(map[string]string, sampleSize)
+		con  		  := consistent.New()
+
 		// Add members to the circle
 		for i := 0 ; i < size ; i++ {
 			con.Add(string(i))
@@ -59,20 +62,23 @@ func TestRehashing(t *testing.T) {
 		// Determine how many were rehashed
 		percentage := rehashed(beforeMapping, afterMapping)
 
-		// Print percentage that were rehashed
-		t.Logf("Members count: %d\n", size)
-		t.Logf("Percentage rehashed: %f\n", percentage)
+		// Print results
+		t.Logf("{\"ring_count\":%d,\"rehashed\":%f,\"replicas\":%d}\n", size, percentage, con.NumberOfReplicas)
 	}
 }
 
 func TestRehashingWithManyReplicas(t *testing.T) {
 	sampleSize    := 1000000
-	beforeMapping := make(map[string]string, sampleSize)
-	afterMapping  := make(map[string]string, sampleSize)
-	con  		  := consistent.New()
-	con.NumberOfReplicas = 100
+	ringSize	  := 1000
+	numberOfReplicas := 100
 
-	for size := 1 ; size < 1000 ; size++ {
+	for size := 1 ; size < ringSize ; size++ {
+		// Re-initialize the mappings and consistent hasher
+		beforeMapping := make(map[string]string, sampleSize)
+		afterMapping  := make(map[string]string, sampleSize)
+		con  		  := consistent.New()
+		con.NumberOfReplicas = numberOfReplicas
+
 		// Add members to the circle
 		for i := 0 ; i < size ; i++ {
 			con.Add(string(i))
@@ -92,8 +98,7 @@ func TestRehashingWithManyReplicas(t *testing.T) {
 		// Determine how many were rehashed
 		percentage := rehashed(beforeMapping, afterMapping)
 
-		// Print percentage that were rehashed
-		t.Logf("Members count: %d\n", size)
-		t.Logf("Percentage rehashed: %f\n", percentage)
+		// Print results
+		t.Logf("{\"ring_count\":%d,\"rehashed\":%f,\"replicas\":%d}\n", size, percentage, con.NumberOfReplicas)
 	}
 }
