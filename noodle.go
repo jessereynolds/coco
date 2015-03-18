@@ -37,6 +37,12 @@ func Fetch(fetch fetchConfig) {
 	}
 
 	log.Printf("info: send: hash ring has %d members: %s", len(con.Members()), con.Members())
+	if len(con.Members()) < 1 {
+		log.Fatal("fatal: The hash ring has no members configured.")
+	}
+	if len(fetch.Bind) == 0 {
+		log.Fatal("fatal: No address configured to bind web server.")
+	}
 	bytesProxied := expvar.NewInt("bytes.proxied")
 
     m := martini.Classic()
