@@ -44,6 +44,7 @@ func Listen(config listenConfig, c chan collectd.Packet) {
 		n, err := conn.Read(buf[:])
 		if err != nil {
 			log.Println("error: Failed to receive packet", err)
+			errorCounts.Add("listen.receive", 1)
 			continue
 		}
 		listenCounts.Add("raw", 1)
@@ -102,6 +103,7 @@ func Send(config sendConfig, filtered chan collectd.Packet, servers map[string]m
 		conn, err := net.Dial("udp", t)
 		if err != nil {
 			log.Printf("error: send: %s: %+v", t, err)
+			errorCounts.Add("send.dial", 1)
 		} else {
 			// Only add the target to the hash if the connection can initially be established
 			re := regexp.MustCompile("^(127.|localhost)")
@@ -136,7 +138,8 @@ func Send(config sendConfig, filtered chan collectd.Packet, servers map[string]m
 		payload := Encode(packet)
 		_, err = connections[server].Write(payload)
 		if err != nil {
-			log.Printf("error: send: %+v", err)
+			errorCounts.Add("send.write", 1)
+			continue
 		}
 
 		// Update counters
@@ -347,6 +350,7 @@ var (
 	filterCounts = expvar.NewMap("filter")
 	sendCounts = expvar.NewMap("send")
 	hashCounts = expvar.NewMap("metrics")
+	errorCounts = expvar.NewMap("errors")
 )
 
 func main() {
