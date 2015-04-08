@@ -95,10 +95,9 @@ func Filter(config filterConfig, raw chan collectd.Packet, filtered chan collect
 	}
 }
 
-func Send(config sendConfig, filtered chan collectd.Packet, servers map[string]map[string]int64) {
+func Send(config sendConfig, filtered chan collectd.Packet, hash *consistent.Consistent, servers map[string]map[string]int64) {
 	targets := config.Targets
 	connections := make(map[string]net.Conn, len(targets))
-	con := consistent.New()
 	for _, t := range(targets) {
 		conn, err := net.Dial("udp", t)
 		if err != nil {
@@ -113,12 +112,12 @@ func Send(config sendConfig, filtered chan collectd.Packet, servers map[string]m
 			}
 			servers[t] = make(map[string]int64)
 			connections[t] = conn
-			con.Add(t)
+			hash.Add(t)
 			hashCounts.Set(t, &expvar.Int{})
 		}
 	}
 
-	log.Printf("info: send: hash ring has %d members: %s", len(con.Members()), con.Members())
+	log.Printf("info: send: hash ring has %d members: %s", len(hash.Members()), hash.Members())
 	if len(connections) == 0 {
 		log.Fatal("fatal: no valid write targets in consistent hash ring")
 	}
@@ -126,7 +125,7 @@ func Send(config sendConfig, filtered chan collectd.Packet, servers map[string]m
 	for {
 		packet := <- filtered
 		// Get the server we should forward the packet to
-		server, err := con.Get(packet.Hostname)
+		server, err := hash.Get(packet.Hostname)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -293,8 +292,24 @@ func Encode(packet collectd.Packet) ([]byte) {
 	return buf
 }
 
-func Api(config apiConfig, servers map[string]map[string]int64) {
+func Api(config apiConfig, hash *consistent.Consistent, servers map[string]map[string]int64) {
     m := martini.Classic()
+	// Endpoint for looking up what storage nodes own metrics for a host
+	m.Get("/lookup", func(params martini.Params, req *http.Request) []byte {
+		qs := req.URL.Query()
+		if len(qs["name"]) > 0 {
+			name := qs["name"][0]
+			server, err := hash.Get(name)
+			if err != nil {
+				errorCounts.Add("api.lookup", 1)
+				log.Printf("error: api: %s: %+v\n", name, err)
+			}
+			return []byte(server + "\n")
+		} else {
+			return []byte("")
+		}
+	})
+	// Dump out the list of servers Coco is tracking
     m.Group("/servers", func(r martini.Router) {
         r.Get("", func() []byte {
             data, _ := json.Marshal(servers)
@@ -363,12 +378,15 @@ func main() {
 		return
 	}
 
+	// Setup data structures to be shared across components
 	servers := map[string]map[string]int64{}
 	raw := make(chan collectd.Packet)
 	filtered := make(chan collectd.Packet)
+	hash := consistent.New()
+
+	// Launch components to do the work
 	go Listen(config.Listen, raw)
 	go Filter(config.Filter, raw, filtered, servers)
-	//go Mirror(config.Send, mirror)
-	go Send(config.Send, filtered, servers)
-	Api(config.Api, servers)
+	go Send(config.Send, filtered, hash, servers)
+	Api(config.Api, hash, servers)
 }
