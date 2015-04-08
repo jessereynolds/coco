@@ -83,7 +83,7 @@ func main() {
 		Endpoint: *endpoint,
 		Host:     *host,
 		Plugin:   "curl_json-coco",
-		Instance: "operations-errors-send-write",
+		Instance: "operations-send-" + rrd + ":25826",
 		Ds:		  "value",
 		Window:   *window,
 	}
