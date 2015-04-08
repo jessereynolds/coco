@@ -106,7 +106,7 @@ func main() {
 	ks.Plot(window1, window2, max, maxIndex)
 
 	if max > *deviation {
-		fmt.Printf("CRITICAL: Deviation (%.2f) is greater than maxIndexmum allowed (%.2f)\n", max, *deviation)
+		fmt.Printf("CRITICAL: Deviation (%.2f) is greater than maximum allowed (%.2f)\n", max, *deviation)
 		os.Exit(2)
 	} else {
 		fmt.Printf("OK: Deviation (%.2f) is within tolerances (%.2f)\n", max, *deviation)
