@@ -41,6 +41,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"io/ioutil"
 	"encoding/json"
 	"strings"
@@ -148,6 +149,56 @@ func findMaxDeviation(window1 []float64, window2 []float64) (float64, int) {
 	return max, maxi
 }
 
+func plot(window1 []float64, window2 []float64, max float64, maxi int) {
+	err := exec.Command("which", "gnuplot").Run()
+
+	if err != nil {
+		fmt.Println("WARNING: gnuplot not available")
+		return
+	}
+
+	cmd := exec.Command("gnuplot")
+	stdin, err  := cmd.StdinPipe()
+	if err != nil {
+		fmt.Println("WARNING: plot: couldn't attach to stdin.")
+		return
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		fmt.Println("WARNING: plot: couldn't attach to stdout.")
+		return
+	}
+
+	if err := cmd.Start(); err != nil {
+		fmt.Println("WARNING: plot: couldn't run command: %+v.", err)
+		return
+	}
+
+	fmt.Fprintf(stdin, "set term dumb\n")
+	/*
+	// Crappy attempt at highlighting anomalous area.
+	//circle := window1[maxi] + math.Abs(window1[maxi] - window2[maxi])
+	//fmt.Printf("window1: %.2f, window2: %.2f, mid: %.2f\n", window1[maxi], window2[maxi], circle)
+	//fmt.Fprintf(stdin, "set object circle at %d, %.2f size 0.5 fc rgb 'gray'\n", maxi, circle)
+	*/
+	fmt.Fprintf(stdin, "plot '-' using 2 title '' with lines, '-' using 2 title '' with lines\n")
+	for i, _ := range window1 {
+		fmt.Fprintf(stdin, "\t%d %.2f\n", i, window1[i])
+	}
+	fmt.Fprintf(stdin, "e\n")
+	for i, _ := range window2 {
+		fmt.Fprintf(stdin, "\t%d %.2f\n", i, window2[i])
+	}
+	stdin.Close()
+
+	output, err := ioutil.ReadAll(stdout)
+	if err != nil {
+		fmt.Println("WARNING: plot: couldn't read stdout: %+v.", err)
+		return
+	}
+	fmt.Println(string(output))
+}
+
 var (
 	base 		= kingpin.Flag("base", "The host to query metrics from").Required().String()
 	rrd         = kingpin.Flag("rrd", "The storage node to test").Required().String()
@@ -186,11 +237,14 @@ func main() {
 		fmt.Println(max, maxi)
 	}
 
+	plot(window1, window2, max, maxi)
+
 	if max > *deviation {
 		fmt.Printf("CRITICAL: Deviation (%.2f) is greater than maximum allowed (%.2f)\n", max, *deviation)
 		os.Exit(2)
 	} else {
-		fmt.Printf("OK: Deviation (%.2f) is less than maximum allowed (%.2f)\n", max, *deviation)
+		fmt.Printf("OK: Deviation (%.2f) is within tolerances (%.2f)\n", max, *deviation)
 		os.Exit(0)
 	}
+
 }
