@@ -276,19 +276,24 @@ func Encode(packet collectd.Packet) ([]byte) {
 	return buf
 }
 
-func Api(config ApiConfig, hash *consistent.Consistent, servers map[string]map[string]int64) {
+func Api(config ApiConfig, hashes[] *consistent.Consistent, servers map[string]map[string]int64) {
     m := martini.Classic()
 	// Endpoint for looking up what storage nodes own metrics for a host
 	m.Get("/lookup", func(params martini.Params, req *http.Request) []byte {
 		qs := req.URL.Query()
 		if len(qs["name"]) > 0 {
 			name := qs["name"][0]
-			server, err := hash.Get(name)
-			if err != nil {
-				errorCounts.Add("api.lookup", 1)
-				log.Printf("error: api: %s: %+v\n", name, err)
+			var result []string
+			for _, hash := range hashes {
+				server, err := hash.Get(name)
+				if err != nil {
+					errorCounts.Add("api.lookup", 1)
+					log.Printf("error: api: %s: %+v\n", name, err)
+				}
+				result = append(result, server)
 			}
-			return []byte(server + "\n")
+			//return []byte(server + "\n")
+			return []byte(strings.Join(result, "\n"))
 		} else {
 			return []byte("")
 		}

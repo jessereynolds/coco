@@ -27,11 +27,11 @@ func main() {
 	servers := map[string]map[string]int64{}
 	raw := make(chan collectd.Packet)
 	filtered := make(chan collectd.Packet)
-	hash := consistent.New()
+	var hashes []*consistent.Consistent
 
 	// Launch components to do the work
 	go coco.Listen(config.Listen, raw)
 	go coco.Filter(config.Filter, raw, filtered, servers)
-	go coco.Send(config.Send, filtered, hash, servers)
-	coco.Api(config.Api, hash, servers)
+	go coco.Send(config.Send, filtered, hashes, servers)
+	coco.Api(config.Api, hashes, servers)
 }
