@@ -90,7 +90,6 @@ func Filter(config filterConfig, raw chan collectd.Packet, filtered chan collect
 		} else {
 			servers["filtered"][name] = time.Now().Unix()
 			filterCounts.Add("rejected", 1)
-			// FIXME(lindsay): log to stdout or a file, based on config setting
 		}
 	}
 }
