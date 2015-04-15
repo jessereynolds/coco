@@ -88,7 +88,6 @@ Send
  - Hash lookup
  - Encode a packet
 */
-
 func TestSend(t *testing.T) {
 	// Setup listener
 	listenConfig := coco.ListenConfig{
