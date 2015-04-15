@@ -2,25 +2,11 @@ package coco
 
 import (
 	"testing"
+	consistent "github.com/stathat/consistent"
 	collectd "github.com/kimor79/gollectd"
 	"github.com/bulletproofnetworks/marksman/coco/coco"
 	"strings"
 )
-
-/*
-Listen
- - Split a payload into samples
- - increment counter
-*/
-func TestListenSplitsSamples(t *testing.T) {
-	config := coco.ListenConfig{
-		Bind: "0.0.0.0:25888",
-		Typesdb: "../types.db",
-	}
-	samples := make(chan collectd.Packet)
-	go coco.Listen(config, samples)
-	//t.Fail()
-}
 
 /*
 Filter
@@ -102,3 +88,50 @@ Send
  - Hash lookup
  - Encode a packet
 */
+
+func TestSend(t *testing.T) {
+	// Setup listener
+	listenConfig := coco.ListenConfig{
+		Bind:	"127.0.0.1:25888",
+		Typesdb: "../types.db",
+	}
+	samples := make(chan collectd.Packet)
+	go coco.Listen(listenConfig, samples)
+
+	var receive collectd.Packet
+	done := make(chan bool)
+	go func() {
+		receive = <- samples
+		// https://ariejan.net/2014/08/29/synchronize-goroutines-in-your-tests/
+		done <- true
+	}()
+
+	// Setup sender
+	sendConfig := coco.SendConfig{
+		Targets: []string{listenConfig.Bind},
+	}
+	filtered := make(chan collectd.Packet)
+	hash := consistent.New()
+	servers := map[string]map[string]int64{}
+	go coco.Send(sendConfig, filtered, hash, servers)
+
+	// Test dispatch
+	send := collectd.Packet{
+		Hostname: "foo",
+		Plugin: "load",
+		Type: "load",
+	}
+
+	filtered <- send
+	<- done
+
+	if send.Hostname != receive.Hostname {
+		t.Errorf("Expected %s got %s", send.Hostname, receive.Hostname)
+	}
+	if send.Plugin != receive.Plugin {
+		t.Errorf("Expected %s got %s", send.Plugin, receive.Plugin)
+	}
+	if send.Type != receive.Type {
+		t.Errorf("Expected %s got %s", send.Type, receive.Type)
+	}
+}
