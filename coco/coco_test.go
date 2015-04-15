@@ -6,6 +6,7 @@ import (
 	collectd "github.com/kimor79/gollectd"
 	"github.com/bulletproofnetworks/marksman/coco/coco"
 	"strings"
+	"time"
 )
 
 /*
@@ -89,6 +90,7 @@ Send
  - Encode a packet
 */
 func TestSend(t *testing.T) {
+	/*
 	// Setup listener
 	listenConfig := coco.ListenConfig{
 		Bind:	"127.0.0.1:25888",
@@ -132,5 +134,49 @@ func TestSend(t *testing.T) {
 	}
 	if send.Type != receive.Type {
 		t.Errorf("Expected %s got %s", send.Type, receive.Type)
+	}
+	*/
+}
+
+func TestSendTiers(t *testing.T) {
+	// Setup listen
+	listenConfig := coco.ListenConfig{
+		Bind:	"127.0.0.1:25888",
+		Typesdb: "../types.db",
+	}
+	raw := make(chan collectd.Packet)
+	go coco.Listen(listenConfig, raw)
+
+	count := 0
+	go func() {
+		for {
+			<- raw
+			count += 1
+		}
+	}()
+
+	// Setup sender
+	sendConfig := make(map[string]coco.SendConfig)
+	sendConfig["a"] = coco.SendConfig{ Targets: []string{"127.0.0.1:25888"} }
+	sendConfig["b"] = coco.SendConfig{ Targets: []string{"127.0.0.1:25888"} }
+	sendConfig["c"] = coco.SendConfig{ Targets: []string{"127.0.0.1:25888"} }
+
+	filtered := make(chan collectd.Packet)
+	var hashes []*consistent.Consistent
+	servers := map[string]map[string]int64{}
+	go coco.Send(sendConfig, filtered, hashes, servers)
+
+	// Test dispatch
+	send := collectd.Packet{
+		Hostname: "foo",
+		Plugin: "load",
+		Type: "load",
+	}
+
+	filtered <- send
+
+	time.Sleep(100 * time.Millisecond)
+	if count != len(sendConfig) {
+		t.Errorf("Expected %d packets, got %d", len(sendConfig), count)
 	}
 }

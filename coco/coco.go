@@ -92,56 +92,73 @@ func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collect
 	}
 }
 
-func Send(config SendConfig, filtered chan collectd.Packet, hash *consistent.Consistent, servers map[string]map[string]int64) {
-	targets := config.Targets
-	connections := make(map[string]net.Conn, len(targets))
-	for _, t := range(targets) {
-		conn, err := net.Dial("udp", t)
-		if err != nil {
-			log.Printf("error: send: %s: %+v", t, err)
-			errorCounts.Add("send.dial", 1)
-		} else {
-			// Only add the target to the hash if the connection can initially be established
-			re := regexp.MustCompile("^(127.|localhost)")
-			if re.FindStringIndex(conn.RemoteAddr().String()) != nil {
-				log.Printf("warning: %s is local. You may be looping metrics back to coco!", conn.RemoteAddr())
-				log.Printf("warning: dutifully adding %s anyway, but beware!", conn.RemoteAddr())
+func Send(config map[string]SendConfig, filtered chan collectd.Packet, hashes []*consistent.Consistent, servers map[string]map[string]int64) {
+	connections := make(map[string]net.Conn)
+
+	for tier, _ := range config {
+		hash := consistent.New()
+
+		targets := config[tier].Targets
+		for _, t := range(targets) {
+			conn, err := net.Dial("udp", t)
+			if err != nil {
+				log.Printf("error: send: %s: %+v", t, err)
+				errorCounts.Add("send.dial", 1)
+			} else {
+				// Only add the target to the hash if the connection can initially be established
+				re := regexp.MustCompile("^(127.|localhost)")
+				if re.FindStringIndex(conn.RemoteAddr().String()) != nil {
+					log.Printf("warning: %s is local. You may be looping metrics back to coco!", conn.RemoteAddr())
+					log.Printf("warning: dutifully adding %s anyway, but beware!", conn.RemoteAddr())
+				}
+				servers[t] = make(map[string]int64)
+				connections[t] = conn
+				hash.Add(t)
+				hashCounts.Set(t, &expvar.Int{})
 			}
-			servers[t] = make(map[string]int64)
-			connections[t] = conn
-			hash.Add(t)
-			hashCounts.Set(t, &expvar.Int{})
 		}
+
+		// Add the hash to the list of hashes
+		hashes = append(hashes, hash)
 	}
 
-	log.Printf("info: send: hash ring has %d members: %s", len(hash.Members()), hash.Members())
+	// Log how the hashes are set up
+	i := 0
+	for tier, _ := range config {
+		hash := hashes[i]
+		log.Printf("info: send: tier %s hash ring has %d members: %s", tier, len(hash.Members()), hash.Members())
+		i += 1
+	}
+
 	if len(connections) == 0 {
 		log.Fatal("fatal: no valid write targets in consistent hash ring")
 	}
 
 	for {
 		packet := <- filtered
-		// Get the server we should forward the packet to
-		server, err := hash.Get(packet.Hostname)
-		if err != nil {
-			log.Fatal(err)
-		}
-		// Update metadata
-		name := MetricName(packet)
-		servers[server][name] = time.Now().Unix()
+		for _, hash := range hashes {
+			// Get the server we should forward the packet to
+			server, err := hash.Get(packet.Hostname)
+			if err != nil {
+				log.Fatal(err)
+			}
+			// Update metadata
+			name := MetricName(packet)
+			servers[server][name] = time.Now().Unix()
 
-		// Dispatch the metric
-		payload := Encode(packet)
-		_, err = connections[server].Write(payload)
-		if err != nil {
-			errorCounts.Add("send.write", 1)
-			continue
-		}
+			// Dispatch the metric
+			payload := Encode(packet)
+			_, err = connections[server].Write(payload)
+			if err != nil {
+				errorCounts.Add("send.write", 1)
+				continue
+			}
 
-		// Update counters
-		hashCounts.Get(server).(*expvar.Int).Set(int64(len(servers[server])))
-		sendCounts.Add(server, 1)
-		sendCounts.Add("total", 1)
+			// Update counters
+			hashCounts.Get(server).(*expvar.Int).Set(int64(len(servers[server])))
+			sendCounts.Add(server, 1)
+			sendCounts.Add("total", 1)
+		}
 	}
 }
 
@@ -305,7 +322,7 @@ func Api(config ApiConfig, hash *consistent.Consistent, servers map[string]map[s
 type CocoConfig struct {
 	Listen	ListenConfig
 	Filter	FilterConfig
-	Send	SendConfig
+	Send	map[string]SendConfig
 	Api		ApiConfig
 }
 
