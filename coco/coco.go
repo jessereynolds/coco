@@ -55,7 +55,7 @@ func Listen(config ListenConfig, c chan collectd.Packet) {
 	}
 }
 
-func metricName(packet collectd.Packet) (string) {
+func MetricName(packet collectd.Packet) (string) {
 	parts := []string{
 		packet.Hostname,
 		packet.Plugin,
@@ -79,7 +79,7 @@ func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collect
 	servers["filtered"] = make(map[string]int64)
 	for {
 		packet := <- raw
-		name := metricName(packet)
+		name := MetricName(packet)
 
 		re := regexp.MustCompile(config.Blacklist)
 		if (re.FindStringIndex(name) == nil) {
@@ -127,7 +127,7 @@ func Send(config SendConfig, filtered chan collectd.Packet, hash *consistent.Con
 			log.Fatal(err)
 		}
 		// Update metadata
-		name := metricName(packet)
+		name := MetricName(packet)
 		servers[server][name] = time.Now().Unix()
 
 		// Dispatch the metric
