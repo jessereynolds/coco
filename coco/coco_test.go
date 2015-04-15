@@ -90,10 +90,9 @@ Send
  - Encode a packet
 */
 func TestSend(t *testing.T) {
-	/*
 	// Setup listener
 	listenConfig := coco.ListenConfig{
-		Bind:	"127.0.0.1:25888",
+		Bind:	"127.0.0.1:25887",
 		Typesdb: "../types.db",
 	}
 	samples := make(chan collectd.Packet)
@@ -108,13 +107,13 @@ func TestSend(t *testing.T) {
 	}()
 
 	// Setup sender
-	sendConfig := coco.SendConfig{
-		Targets: []string{listenConfig.Bind},
-	}
+	sendConfig := make(map[string]coco.SendConfig)
+	sendConfig["a"] = coco.SendConfig{ Targets: []string{listenConfig.Bind} }
+
 	filtered := make(chan collectd.Packet)
-	hash := consistent.New()
+	var hashes []*consistent.Consistent
 	servers := map[string]map[string]int64{}
-	go coco.Send(sendConfig, filtered, hash, servers)
+	go coco.Send(sendConfig, filtered, hashes, servers)
 
 	// Test dispatch
 	send := collectd.Packet{
@@ -135,7 +134,6 @@ func TestSend(t *testing.T) {
 	if send.Type != receive.Type {
 		t.Errorf("Expected %s got %s", send.Type, receive.Type)
 	}
-	*/
 }
 
 func TestSendTiers(t *testing.T) {
