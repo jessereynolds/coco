@@ -1,4 +1,4 @@
-package main
+package coco
 
 import (
 	"log"
@@ -11,8 +11,6 @@ import (
 	"encoding/binary"
 	"net/http"
 	"net"
-	"github.com/BurntSushi/toml"
-	"gopkg.in/alecthomas/kingpin.v1"
 	"expvar"
 	"fmt"
 	consistent "github.com/stathat/consistent"
@@ -20,7 +18,7 @@ import (
 )
 
 // Listen for collectd network packets, parse , and send them over a channel
-func Listen(config listenConfig, c chan collectd.Packet) {
+func Listen(config ListenConfig, c chan collectd.Packet) {
 	laddr, err := net.ResolveUDPAddr("udp", config.Bind)
 	if err != nil {
 		log.Fatalln("fatal: failed to resolve address", err)
@@ -77,7 +75,7 @@ func metricName(packet collectd.Packet) (string) {
 	return strings.Join(prts, "/")
 }
 
-func Filter(config filterConfig, raw chan collectd.Packet, filtered chan collectd.Packet, servers map[string]map[string]int64) {
+func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collectd.Packet, servers map[string]map[string]int64) {
 	servers["filtered"] = make(map[string]int64)
 	for {
 		packet := <- raw
@@ -94,7 +92,7 @@ func Filter(config filterConfig, raw chan collectd.Packet, filtered chan collect
 	}
 }
 
-func Send(config sendConfig, filtered chan collectd.Packet, hash *consistent.Consistent, servers map[string]map[string]int64) {
+func Send(config SendConfig, filtered chan collectd.Packet, hash *consistent.Consistent, servers map[string]map[string]int64) {
 	targets := config.Targets
 	connections := make(map[string]net.Conn, len(targets))
 	for _, t := range(targets) {
@@ -261,7 +259,7 @@ func Encode(packet collectd.Packet) ([]byte) {
 	return buf
 }
 
-func Api(config apiConfig, hash *consistent.Consistent, servers map[string]map[string]int64) {
+func Api(config ApiConfig, hash *consistent.Consistent, servers map[string]map[string]int64) {
     m := martini.Classic()
 	// Endpoint for looking up what storage nodes own metrics for a host
 	m.Get("/lookup", func(params martini.Params, req *http.Request) []byte {
@@ -304,32 +302,31 @@ func Api(config apiConfig, hash *consistent.Consistent, servers map[string]map[s
 	log.Fatal(http.ListenAndServe(config.Bind, m))
 }
 
-type cocoConfig struct {
-	Listen	listenConfig
-	Filter	filterConfig
-	Send	sendConfig
-	Api		apiConfig
+type CocoConfig struct {
+	Listen	ListenConfig
+	Filter	FilterConfig
+	Send	SendConfig
+	Api		ApiConfig
 }
 
-type listenConfig struct {
+type ListenConfig struct {
 	Bind	string
 	Typesdb	string
 }
 
-type filterConfig struct {
+type FilterConfig struct {
 	Blacklist	string
 }
 
-type sendConfig struct {
+type SendConfig struct {
 	Targets	[]string
 }
 
-type apiConfig struct {
+type ApiConfig struct {
 	Bind	string
 }
 
 var (
-	configPath	= kingpin.Arg("config", "Path to coco config").Default("coco.conf").String()
 	listenCounts = expvar.NewMap("listen")
 	filterCounts = expvar.NewMap("filter")
 	sendCounts = expvar.NewMap("send")
@@ -337,25 +334,3 @@ var (
 	errorCounts = expvar.NewMap("errors")
 )
 
-func main() {
-	kingpin.Version("1.0.0")
-	kingpin.Parse()
-
-	var config cocoConfig
-	if _, err := toml.DecodeFile(*configPath, &config); err != nil {
-		log.Fatalln("fatal:", err)
-		return
-	}
-
-	// Setup data structures to be shared across components
-	servers := map[string]map[string]int64{}
-	raw := make(chan collectd.Packet)
-	filtered := make(chan collectd.Packet)
-	hash := consistent.New()
-
-	// Launch components to do the work
-	go Listen(config.Listen, raw)
-	go Filter(config.Filter, raw, filtered, servers)
-	go Send(config.Send, filtered, hash, servers)
-	Api(config.Api, hash, servers)
-}
