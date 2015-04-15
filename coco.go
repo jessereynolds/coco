@@ -148,36 +148,6 @@ func Send(config sendConfig, filtered chan collectd.Packet, hash *consistent.Con
 	}
 }
 
-/*
-func Mirror(config sendConfig, mirror chan []byte) {
-	targets := config.Targets
-	connections := make([]net.Conn, len(targets))
-	for i, t := range(targets) {
-		conn, err := net.Dial("udp", t)
-		if err != nil {
-			log.Printf("error: send: %s: %+v", t, err)
-		} else {
-			connections[i] = conn
-		}
-	}
-
-	log.Printf("info: send: mirror list has %d members. %d", len(connections), targets)
-	if len(connections) == 0 {
-		log.Fatal("fatal: no valid write targets in mirror list")
-	}
-
-	for {
-		payload := <- mirror
-
-		fmt.Println("mirror", payload)
-
-		for _, server := range(connections) {
-			server.Write(payload)
-		}
-	}
-}
-*/
-
 // Encode a Packet into the collectd wire protocol format.
 func Encode(packet collectd.Packet) ([]byte) {
 	// String parts have a length of 5, because there is a terminating null byte
