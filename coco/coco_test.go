@@ -221,7 +221,7 @@ func TestApiLookup(t *testing.T) {
 	// Test
 	resp, err := http.Get("http://127.0.0.1:25999/lookup?name=abc")
 	if err != nil {
-		t.Failf("HTTP GET failed: %s", err)
+		t.Fatalf("HTTP GET failed: %s", err)
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
