@@ -131,26 +131,26 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, servers map[string]map[s
 	for {
 		packet := <- filtered
 		for _, tier := range *tiers {
-			// Get the server we should forward the packet to
-			server, err := tier.Hash.Get(packet.Hostname)
+			// Get the target we should forward the packet to
+			target, err := tier.Hash.Get(packet.Hostname)
 			if err != nil {
 				log.Fatal(err)
 			}
 			// Update metadata
 			name := MetricName(packet)
-			servers[server][name] = time.Now().Unix()
+			servers[target][name] = time.Now().Unix()
 
 			// Dispatch the metric
 			payload := Encode(packet)
-			_, err = connections[server].Write(payload)
+			_, err = connections[target].Write(payload)
 			if err != nil {
 				errorCounts.Add("send.write", 1)
 				continue
 			}
 
 			// Update counters
-			hashCounts.Get(server).(*expvar.Int).Set(int64(len(servers[server])))
-			sendCounts.Add(server, 1)
+			hashCounts.Get(target).(*expvar.Int).Set(int64(len(servers[target])))
+			sendCounts.Add(target, 1)
 			sendCounts.Add("total", 1)
 		}
 	}
