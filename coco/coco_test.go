@@ -210,7 +210,7 @@ func TestApiLookup(t *testing.T) {
 	go coco.Send(&tiers, filtered, servers)
 
 	// FIXME(lindsay): if there's no sleep, we get a panic. work out why
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(1000 * time.Millisecond)
 
 	// Setup API
 	apiConfig := coco.ApiConfig{
@@ -221,7 +221,7 @@ func TestApiLookup(t *testing.T) {
 	// Test
 	resp, err := http.Get("http://127.0.0.1:25999/lookup?name=abc")
 	if err != nil {
-		t.Errorf("HTTP GET failed: %s", err)
+		t.Failf("HTTP GET failed: %s", err)
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
