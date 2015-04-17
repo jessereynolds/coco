@@ -4,7 +4,6 @@ import (
 	"log"
 	"github.com/BurntSushi/toml"
 	"gopkg.in/alecthomas/kingpin.v1"
-	consistent "github.com/stathat/consistent"
 	collectd "github.com/kimor79/gollectd"
 	"github.com/bulletproofnetworks/marksman/coco/coco"
 )
@@ -27,11 +26,16 @@ func main() {
 	servers := map[string]map[string]int64{}
 	raw := make(chan collectd.Packet)
 	filtered := make(chan collectd.Packet)
-	var hashes []*consistent.Consistent
+
+	var tiers []coco.Tier
+	for k, v := range(config.Send) {
+		tier := coco.Tier{Name: k, Targets: v.Targets}
+		tiers = append(tiers, tier)
+	}
 
 	// Launch components to do the work
 	go coco.Listen(config.Listen, raw)
 	go coco.Filter(config.Filter, raw, filtered, servers)
-	go coco.Send(config.Send, filtered, hashes, servers)
-	coco.Api(config.Api, hashes, servers)
+	go coco.Send(&tiers, filtered, servers)
+	coco.Api(config.Api, &tiers, servers)
 }
