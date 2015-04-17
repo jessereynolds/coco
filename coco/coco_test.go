@@ -2,7 +2,6 @@ package coco
 
 import (
 	"testing"
-	consistent "github.com/stathat/consistent"
 	collectd "github.com/kimor79/gollectd"
 	"github.com/bulletproofnetworks/marksman/coco/coco"
 	"strings"
@@ -113,10 +112,16 @@ func TestSend(t *testing.T) {
 	sendConfig := make(map[string]coco.SendConfig)
 	sendConfig["a"] = coco.SendConfig{ Targets: []string{listenConfig.Bind} }
 
+	var tiers []coco.Tier
+	for k, v := range(sendConfig) {
+		tier := coco.Tier{Name: k, Targets: v.Targets}
+		tiers = append(tiers, tier)
+	}
+	t.Logf("tiers: %+v\n", tiers)
+
 	filtered := make(chan collectd.Packet)
-	var hashes []*consistent.Consistent
 	servers := map[string]map[string]int64{}
-	go coco.Send(sendConfig, filtered, &hashes, servers)
+	go coco.Send(&tiers, filtered, servers)
 
 	// Test dispatch
 	send := collectd.Packet{
@@ -162,10 +167,15 @@ func TestSendTiers(t *testing.T) {
 	sendConfig["b"] = coco.SendConfig{ Targets: []string{"127.0.0.1:25888"} }
 	sendConfig["c"] = coco.SendConfig{ Targets: []string{"127.0.0.1:25888"} }
 
+	var tiers []coco.Tier
+	for k, v := range(sendConfig) {
+		tier := coco.Tier{Name: k, Targets: v.Targets}
+		tiers = append(tiers, tier)
+	}
+
 	filtered := make(chan collectd.Packet)
-	var hashes []*consistent.Consistent
 	servers := map[string]map[string]int64{}
-	go coco.Send(sendConfig, filtered, &hashes, servers)
+	go coco.Send(&tiers, filtered, servers)
 
 	// Test dispatch
 	send := collectd.Packet{
@@ -185,14 +195,19 @@ func TestSendTiers(t *testing.T) {
 func TestApiLookup(t *testing.T) {
 	// Setup sender
 	sendConfig := make(map[string]coco.SendConfig)
-	sendConfig["a"] = coco.SendConfig{ Targets: []string{"127.0.0.1:25888"} }
+	sendConfig["a"] = coco.SendConfig{ Targets: []string{"127.0.0.1:25887"} }
 	sendConfig["b"] = coco.SendConfig{ Targets: []string{"127.0.0.1:25888"} }
-	sendConfig["c"] = coco.SendConfig{ Targets: []string{"127.0.0.1:25888"} }
+	sendConfig["c"] = coco.SendConfig{ Targets: []string{"127.0.0.1:25889"} }
+
+	var tiers []coco.Tier
+	for k, v := range(sendConfig) {
+		tier := coco.Tier{Name: k, Targets: v.Targets}
+		tiers = append(tiers, tier)
+	}
 
 	filtered := make(chan collectd.Packet)
-	var hashes []*consistent.Consistent
 	servers := map[string]map[string]int64{}
-	go coco.Send(sendConfig, filtered, &hashes, servers)
+	go coco.Send(&tiers, filtered, servers)
 
 	// FIXME(lindsay): if there's no sleep, we get a panic. work out why
 	time.Sleep(100 * time.Millisecond)
@@ -201,7 +216,7 @@ func TestApiLookup(t *testing.T) {
 	apiConfig := coco.ApiConfig{
 		Bind: "0.0.0.0:25999",
 	}
-	go coco.Api(apiConfig, &hashes, servers)
+	go coco.Api(apiConfig, &tiers, servers)
 
 	// Test
 	resp, err := http.Get("http://127.0.0.1:25999/lookup?name=abc")
@@ -217,6 +232,7 @@ func TestApiLookup(t *testing.T) {
 	}
 
 	for k, v := range(sendConfig) {
+		t.Logf("%s: %s\n", result[k], v.Targets[0])
 		if result[k] != v.Targets[0] {
 			t.Errorf("Couldn't find tier %s in response: %s", k, string(body))
 		}

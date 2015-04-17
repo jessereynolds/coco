@@ -92,14 +92,13 @@ func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collect
 	}
 }
 
-func Send(config map[string]SendConfig, filtered chan collectd.Packet, hashes []*consistent.Consistent, servers map[string]map[string]int64) {
+func Send(tiers *[]Tier, filtered chan collectd.Packet, servers map[string]map[string]int64) {
 	connections := make(map[string]net.Conn)
 
-	for tier, _ := range config {
-		hash := consistent.New()
+	for i, tier := range *tiers {
+		(*tiers)[i].Hash = consistent.New()
 
-		targets := config[tier].Targets
-		for _, t := range(targets) {
+		for _, t := range(tier.Targets) {
 			conn, err := net.Dial("udp", t)
 			if err != nil {
 				log.Printf("error: send: %s: %+v", t, err)
@@ -109,36 +108,31 @@ func Send(config map[string]SendConfig, filtered chan collectd.Packet, hashes []
 				re := regexp.MustCompile("^(127.|localhost)")
 				if re.FindStringIndex(conn.RemoteAddr().String()) != nil {
 					log.Printf("warning: %s is local. You may be looping metrics back to coco!", conn.RemoteAddr())
-					log.Printf("warning: dutifully adding %s anyway, but beware!", conn.RemoteAddr())
+					log.Printf("warning: send dutifully adding %s to hash anyway, but beware!", conn.RemoteAddr())
 				}
 				servers[t] = make(map[string]int64)
 				connections[t] = conn
-				hash.Add(t)
+				(*tiers)[i].Hash.Add(t)
 				hashCounts.Set(t, &expvar.Int{})
 			}
 		}
-
-		// Add the hash to the list of hashes
-		hashes = append(hashes, hash)
 	}
 
 	// Log how the hashes are set up
-	i := 0
-	for tier, _ := range config {
-		hash := hashes[i]
-		log.Printf("info: send: tier %s hash ring has %d members: %s", tier, len(hash.Members()), hash.Members())
-		i += 1
+	for _, tier := range *tiers {
+		hash := tier.Hash
+		log.Printf("info: send: tier %s hash ring has %d members: %s", tier.Name, len(hash.Members()), hash.Members())
 	}
 
 	if len(connections) == 0 {
-		log.Fatal("fatal: no valid write targets in consistent hash ring")
+		log.Fatal("fatal: send: no targets in any hash ring in any tier")
 	}
 
 	for {
 		packet := <- filtered
-		for _, hash := range hashes {
+		for _, tier := range *tiers {
 			// Get the server we should forward the packet to
-			server, err := hash.Get(packet.Hostname)
+			server, err := tier.Hash.Get(packet.Hostname)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -276,24 +270,25 @@ func Encode(packet collectd.Packet) ([]byte) {
 	return buf
 }
 
-func Api(config ApiConfig, hashes[] *consistent.Consistent, servers map[string]map[string]int64) {
+func Api(config ApiConfig, tiers *[]Tier, servers map[string]map[string]int64) {
     m := martini.Classic()
 	// Endpoint for looking up what storage nodes own metrics for a host
 	m.Get("/lookup", func(params martini.Params, req *http.Request) []byte {
 		qs := req.URL.Query()
 		if len(qs["name"]) > 0 {
 			name := qs["name"][0]
-			var result []string
-			for _, hash := range hashes {
-				server, err := hash.Get(name)
+			result := map[string]string{}
+
+			for _, tier := range *tiers {
+				server, err := tier.Hash.Get(name)
 				if err != nil {
 					errorCounts.Add("api.lookup", 1)
 					log.Printf("error: api: %s: %+v\n", name, err)
 				}
-				result = append(result, server)
+				result[tier.Name] = server
 			}
-			//return []byte(server + "\n")
-			return []byte(strings.Join(result, "\n"))
+			json, _ := json.Marshal(result)
+			return json
 		} else {
 			return []byte("")
 		}
@@ -346,6 +341,12 @@ type SendConfig struct {
 
 type ApiConfig struct {
 	Bind	string
+}
+
+type Tier struct {
+	Name	string
+	Targets	[]string
+	Hash	*consistent.Consistent
 }
 
 var (
