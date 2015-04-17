@@ -232,7 +232,6 @@ func TestApiLookup(t *testing.T) {
 	}
 
 	for k, v := range(sendConfig) {
-		t.Logf("%s: %s\n", result[k], v.Targets[0])
 		if result[k] != v.Targets[0] {
 			t.Errorf("Couldn't find tier %s in response: %s", k, string(body))
 		}
