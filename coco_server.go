@@ -33,6 +33,10 @@ func main() {
 		tiers = append(tiers, tier)
 	}
 
+	if len(*tiers) == 0 {
+		log.Fatal("No tiers configured. Exiting.")
+	}
+
 	// Launch components to do the work
 	go coco.Listen(config.Listen, raw)
 	go coco.Filter(config.Filter, raw, filtered, servers)

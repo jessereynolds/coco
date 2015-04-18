@@ -28,5 +28,9 @@ func main() {
 		tiers = append(tiers, tier)
 	}
 
+	if len(tiers) == 0 {
+		log.Fatal("No tiers configured. Exiting.")
+	}
+
 	noodle.Fetch(config.Fetch, &tiers)
 }
