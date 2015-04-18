@@ -23,17 +23,16 @@ func poll(t *testing.T, address string) {
 
 /*
 Fetch
- - error on start if no tiers provided
  - returns result from tier with highest resolution available
  - progressively falls back on tiers if first doesn't have data
  - provides empty response if no tiers return data
- - provides lookup function
 */
 /*
 func TestFetch(t *testing.T) {
 }
 */
 
+// Test the lookup function for determining where a metric is stored
 func TestTierLookup(t *testing.T) {
 	// Setup Fetch
 	fetchConfig := coco.FetchConfig{
@@ -77,6 +76,7 @@ func TestTierLookup(t *testing.T) {
 	}
 }
 
+// Test exposing of expvars
 func TestExpvars(t *testing.T) {
 	// Setup Fetch
 	fetchConfig := coco.FetchConfig{
