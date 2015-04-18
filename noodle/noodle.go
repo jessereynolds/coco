@@ -28,16 +28,15 @@ func errorJSON(err error) []byte {
 }
 
 func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
-	// FIXME(lindsay): error if there are no tiers passed
+	if len(fetch.Bind) == 0 {
+		log.Fatal("fatal: No address configured to bind web server.")
+	}
+
 	for i, tier := range *tiers {
 		(*tiers)[i].Hash = consistent.New()
 		for _, t := range(tier.Targets) {
 			(*tiers)[i].Hash.Add(t)
 		}
-	}
-
-	if len(fetch.Bind) == 0 {
-		log.Fatal("fatal: No address configured to bind web server.")
 	}
 
     m := martini.Classic()
