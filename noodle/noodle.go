@@ -89,17 +89,7 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 	})
 	// Implement expvars.expvarHandler in Martini.
 	m.Get("/debug/vars", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		fmt.Fprintf(w, "{")
-		first := true
-		expvar.Do(func(kv expvar.KeyValue) {
-			if !first {
-				fmt.Fprintf(w, ",")
-			}
-			first = false
-			fmt.Fprintf(w, "%q: %s", kv.Key, kv.Value)
-		})
-		fmt.Fprintf(w, "}\n")
+		coco.ExpvarHandler(w, r)
 	})
 	m.Get("/lookup", func(params martini.Params, req *http.Request) []byte {
 		return coco.TierLookup(params, req, tiers)

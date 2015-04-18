@@ -291,6 +291,20 @@ func TierLookup(params martini.Params, req *http.Request, tiers *[]Tier) []byte 
 	}
 }
 
+func ExpvarHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	fmt.Fprintf(w, "{")
+	first := true
+	expvar.Do(func(kv expvar.KeyValue) {
+		if !first {
+			fmt.Fprintf(w, ",")
+		}
+		first = false
+		fmt.Fprintf(w, "%q: %s", kv.Key, kv.Value)
+	})
+	fmt.Fprintf(w, "}\n")
+}
+
 func Api(config ApiConfig, tiers *[]Tier, servers map[string]map[string]int64) {
     m := martini.Classic()
 	// Endpoint for looking up what storage nodes own metrics for a host
@@ -306,17 +320,7 @@ func Api(config ApiConfig, tiers *[]Tier, servers map[string]map[string]int64) {
     })
 	// Implement expvars.expvarHandler in Martini.
 	m.Get("/debug/vars", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		fmt.Fprintf(w, "{")
-		first := true
-		expvar.Do(func(kv expvar.KeyValue) {
-			if !first {
-				fmt.Fprintf(w, ",")
-			}
-			first = false
-			fmt.Fprintf(w, "%q: %s", kv.Key, kv.Value)
-		})
-		fmt.Fprintf(w, "}\n")
+		ExpvarHandler(w, r)
 	})
 
 	log.Printf("info: binding web server to %s", config.Bind)
