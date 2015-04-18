@@ -4,7 +4,7 @@ import (
 	"log"
 	"github.com/BurntSushi/toml"
 	"gopkg.in/alecthomas/kingpin.v1"
-	collectd "github.com/kimor79/gollectd"
+	"github.com/bulletproofnetworks/marksman/coco/noodle"
 	"github.com/bulletproofnetworks/marksman/coco/coco"
 )
 
@@ -22,20 +22,11 @@ func main() {
 		return
 	}
 
-	// Setup data structures to be shared across components
-	servers := map[string]map[string]int64{}
-	raw := make(chan collectd.Packet)
-	filtered := make(chan collectd.Packet)
-
 	var tiers []coco.Tier
 	for k, v := range(config.Send) {
 		tier := coco.Tier{Name: k, Targets: v.Targets}
 		tiers = append(tiers, tier)
 	}
 
-	// Launch components to do the work
-	go coco.Listen(config.Listen, raw)
-	go coco.Filter(config.Filter, raw, filtered, servers)
-	go coco.Send(&tiers, filtered, servers)
-	coco.Api(config.Api, &tiers, servers)
+	noodle.Fetch(config.Fetch, &tiers)
 }

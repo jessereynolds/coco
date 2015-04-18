@@ -319,11 +319,12 @@ func Api(config ApiConfig, tiers *[]Tier, servers map[string]map[string]int64) {
 	log.Fatal(http.ListenAndServe(config.Bind, m))
 }
 
-type CocoConfig struct {
+type Config struct {
 	Listen	ListenConfig
 	Filter	FilterConfig
 	Send	map[string]SendConfig
 	Api		ApiConfig
+	Fetch	FetchConfig
 }
 
 type ListenConfig struct {
@@ -343,6 +344,22 @@ type ApiConfig struct {
 	Bind	string
 }
 
+type FetchConfig struct {
+	Targets	[]string
+	Bind	string
+	Timeout	duration `toml:"proxy_timeout"`
+}
+
+type duration struct {
+	time.Duration
+}
+
+func (d *duration) UnmarshalText(text []byte) error {
+	var err error
+	d.Duration, err = time.ParseDuration(string(text))
+	return err
+}
+
 type Tier struct {
 	Name	string
 	Targets	[]string
@@ -354,6 +371,12 @@ var (
 	filterCounts = expvar.NewMap("filter")
 	sendCounts = expvar.NewMap("send")
 	hashCounts = expvar.NewMap("metrics")
-	errorCounts = expvar.NewMap("errors")
+	errorCounts	*expvar.Map
 )
 
+func init() {
+	errors := expvar.Get("errors")
+	if errors == nil {
+		errorCounts = expvar.NewMap("errors")
+	}
+}
