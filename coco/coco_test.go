@@ -9,7 +9,21 @@ import (
 	"net/http"
 	"io/ioutil"
 	"encoding/json"
+	"net"
 )
+
+// poll repeatedly checks if a port is open, exits when it is, fails tests when it doesn't
+func poll(t *testing.T, address string) {
+	iterations := 1000
+	for i := 0 ; i < iterations ; i++ {
+		_, err := net.Dial("tcp", address)
+		t.Logf("Dial %s attempt %d", address, i)
+		if err == nil { break }
+		if i == (iterations - 1) {
+			t.Fatalf("Couldn't establish connection to %s", address)
+		}
+	}
+}
 
 /*
 Filter
@@ -186,6 +200,7 @@ func TestSendTiers(t *testing.T) {
 
 	filtered <- send
 
+	// Breathe a moment so packet works its way through
 	time.Sleep(100 * time.Millisecond)
 	if count != len(tierConfig) {
 		t.Errorf("Expected %d packets, got %d", len(tierConfig), count)
@@ -209,14 +224,13 @@ func TestTierLookup(t *testing.T) {
 	servers := map[string]map[string]int64{}
 	go coco.Send(&tiers, filtered, servers)
 
-	// FIXME(lindsay): if there's no sleep, we get a panic. work out why
-	time.Sleep(1000 * time.Millisecond)
-
 	// Setup API
 	apiConfig := coco.ApiConfig{
 		Bind: "0.0.0.0:25999",
 	}
 	go coco.Api(apiConfig, &tiers, servers)
+
+	poll(t, apiConfig.Bind)
 
 	// Test
 	resp, err := http.Get("http://127.0.0.1:25999/lookup?name=abc")
@@ -235,5 +249,49 @@ func TestTierLookup(t *testing.T) {
 		if result[k] != v.Targets[0] {
 			t.Errorf("Couldn't find tier %s in response: %s", k, string(body))
 		}
+	}
+}
+
+
+func TestExpvars(t *testing.T) {
+	// Setup API
+	tierConfig := make(map[string]coco.TierConfig)
+	tierConfig["a"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25887"} }
+
+	// FIXME(lindsay): Refactor this into Tiers() function
+	// tiers := tierConfig.Tiers()
+	var tiers []coco.Tier
+	for k, v := range(tierConfig) {
+		tier := coco.Tier{Name: k, Targets: v.Targets}
+		tiers = append(tiers, tier)
+	}
+
+	apiConfig := coco.ApiConfig{
+		Bind: "127.0.0.1:26080",
+	}
+	servers := map[string]map[string]int64{}
+	go coco.Api(apiConfig, &tiers, servers)
+
+	poll(t, apiConfig.Bind)
+
+	// Test
+	resp, err := http.Get("http://127.0.0.1:26080/debug/vars")
+	if err != nil {
+		t.Fatalf("HTTP GET failed: %s", err)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	var result map[string]interface{}
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		t.Errorf("Error when decoding JSON %+v.", err)
+		t.Errorf("Response body: %s", string(body))
+		t.FailNow()
+	}
+
+	if result["cmdline"] == nil {
+		t.Errorf("Couldn't find 'cmdline' key in JSON.")
+		t.Errorf("JSON object: %+v", result)
+		t.FailNow()
 	}
 }
