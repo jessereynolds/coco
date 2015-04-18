@@ -4,11 +4,22 @@ import (
 	"testing"
 	"github.com/bulletproofnetworks/marksman/coco/coco"
 	"github.com/bulletproofnetworks/marksman/coco/noodle"
-	"time"
 	"net/http"
 	"io/ioutil"
 	"encoding/json"
+	"net"
 )
+
+func poll(t *testing.T, address string) {
+	for i := 0 ; i < 1000 ; i++ {
+		_, err := net.Dial("tcp", address)
+		t.Logf("Dial %s attempt %d", address, i)
+		if err == nil { break }
+		if i == 999 {
+			t.Fatalf("Couldn't establish connection to %s", address)
+		}
+	}
+}
 
 /*
 Fetch
@@ -26,7 +37,7 @@ func TestFetch(t *testing.T) {
 func TestTierLookup(t *testing.T) {
 	// Setup Fetch
 	fetchConfig := coco.FetchConfig{
-		Bind: "0.0.0.0:26080",
+		Bind: "127.0.0.1:26080",
 		Timeout: *new(coco.Duration), //.UnmarshalText([]byte("1s")),
 	}
 
@@ -44,8 +55,7 @@ func TestTierLookup(t *testing.T) {
 
 	go noodle.Fetch(fetchConfig, &tiers)
 
-	// FIXME(lindsay): if there's no sleep, we get a panic. work out why
-	time.Sleep(500 * time.Millisecond)
+	poll(t, fetchConfig.Bind)
 
 	// Test
 	resp, err := http.Get("http://127.0.0.1:26080/lookup?name=abc")
@@ -70,7 +80,7 @@ func TestTierLookup(t *testing.T) {
 func TestExpvars(t *testing.T) {
 	// Setup Fetch
 	fetchConfig := coco.FetchConfig{
-		Bind: "0.0.0.0:26081",
+		Bind: "127.0.0.1:26081",
 		Timeout: *new(coco.Duration), //.UnmarshalText([]byte("1s")),
 	}
 
@@ -86,8 +96,7 @@ func TestExpvars(t *testing.T) {
 
 	go noodle.Fetch(fetchConfig, &tiers)
 
-	// FIXME(lindsay): if there's no sleep, we get a panic. work out why
-	time.Sleep(500 * time.Millisecond)
+	poll(t, fetchConfig.Bind)
 
 	// Test
 	resp, err := http.Get("http://127.0.0.1:26081/debug/vars")
