@@ -45,7 +45,7 @@ func TestTierLookup(t *testing.T) {
 	go noodle.Fetch(fetchConfig, &tiers)
 
 	// FIXME(lindsay): if there's no sleep, we get a panic. work out why
-	time.Sleep(1000 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 
 	// Test
 	resp, err := http.Get("http://127.0.0.1:26080/lookup?name=abc")
@@ -64,5 +64,49 @@ func TestTierLookup(t *testing.T) {
 		if result[k] != v.Targets[0] {
 			t.Errorf("Couldn't find tier %s in response: %s", k, string(body))
 		}
+	}
+}
+
+func TestExpvars(t *testing.T) {
+	// Setup Fetch
+	fetchConfig := coco.FetchConfig{
+		Bind: "0.0.0.0:26081",
+		Timeout: *new(coco.Duration), //.UnmarshalText([]byte("1s")),
+	}
+
+	tierConfig := make(map[string]coco.TierConfig)
+	tierConfig["a"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25887"} }
+
+	// FIXME(lindsay): Refactor this into Tiers() function
+	var tiers []coco.Tier
+	for k, v := range(tierConfig) {
+		tier := coco.Tier{Name: k, Targets: v.Targets}
+		tiers = append(tiers, tier)
+	}
+
+	go noodle.Fetch(fetchConfig, &tiers)
+
+	// FIXME(lindsay): if there's no sleep, we get a panic. work out why
+	time.Sleep(500 * time.Millisecond)
+
+	// Test
+	resp, err := http.Get("http://127.0.0.1:26081/debug/vars")
+	if err != nil {
+		t.Fatalf("HTTP GET failed: %s", err)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	var result map[string]interface{}
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		t.Errorf("Error when decoding JSON %+v.", err)
+		t.Errorf("Response body: %s", string(body))
+		t.FailNow()
+	}
+
+	if result["cmdline"] == nil {
+		t.Errorf("Couldn't find 'cmdline' key in JSON.")
+		t.Errorf("JSON object: %+v", result)
+		t.FailNow()
 	}
 }

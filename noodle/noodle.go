@@ -39,7 +39,6 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 	if len(fetch.Bind) == 0 {
 		log.Fatal("fatal: No address configured to bind web server.")
 	}
-	bytesProxied := expvar.NewInt("bytes.proxied")
 
     m := martini.Classic()
 	m.Get("/data/:hostname/(.+)", func(params martini.Params, req *http.Request) []byte {
@@ -111,8 +110,9 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 }
 
 var (
-	fetchCounts = expvar.NewMap("target.requests")
-	respCounts  = expvar.NewMap("target.response.codes")
+	fetchCounts  = expvar.NewMap("target.requests")
+	respCounts   = expvar.NewMap("target.response.codes")
+	bytesProxied = expvar.NewInt("bytes.proxied")
 	errorCounts	*expvar.Map
 )
 
