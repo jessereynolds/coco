@@ -192,7 +192,7 @@ func TestSendTiers(t *testing.T) {
 	}
 }
 
-func TestApiLookup(t *testing.T) {
+func TestTierLookup(t *testing.T) {
 	// Setup sender
 	tierConfig := make(map[string]coco.TierConfig)
 	tierConfig["a"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25887"} }

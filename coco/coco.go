@@ -270,28 +270,32 @@ func Encode(packet collectd.Packet) ([]byte) {
 	return buf
 }
 
+func TierLookup(params martini.Params, req *http.Request, tiers *[]Tier) []byte {
+	qs := req.URL.Query()
+	if len(qs["name"]) > 0 {
+		name := qs["name"][0]
+		result := map[string]string{}
+
+		for _, tier := range *tiers {
+			server, err := tier.Hash.Get(name)
+			if err != nil {
+				errorCounts.Add("api.lookup", 1)
+				log.Printf("error: api: %s: %+v\n", name, err)
+			}
+			result[tier.Name] = server
+		}
+		json, _ := json.Marshal(result)
+		return json
+	} else {
+		return []byte("")
+	}
+}
+
 func Api(config ApiConfig, tiers *[]Tier, servers map[string]map[string]int64) {
     m := martini.Classic()
 	// Endpoint for looking up what storage nodes own metrics for a host
 	m.Get("/lookup", func(params martini.Params, req *http.Request) []byte {
-		qs := req.URL.Query()
-		if len(qs["name"]) > 0 {
-			name := qs["name"][0]
-			result := map[string]string{}
-
-			for _, tier := range *tiers {
-				server, err := tier.Hash.Get(name)
-				if err != nil {
-					errorCounts.Add("api.lookup", 1)
-					log.Printf("error: api: %s: %+v\n", name, err)
-				}
-				result[tier.Name] = server
-			}
-			json, _ := json.Marshal(result)
-			return json
-		} else {
-			return []byte("")
-		}
+		return TierLookup(params, req, tiers)
 	})
 	// Dump out the list of servers Coco is tracking
     m.Group("/servers", func(r martini.Router) {
@@ -346,14 +350,14 @@ type ApiConfig struct {
 
 type FetchConfig struct {
 	Bind	string
-	Timeout	duration `toml:"proxy_timeout"`
+	Timeout	Duration `toml:"proxy_timeout"`
 }
 
-type duration struct {
+type Duration struct {
 	time.Duration
 }
 
-func (d *duration) UnmarshalText(text []byte) error {
+func (d *Duration) UnmarshalText(text []byte) error {
 	var err error
 	d.Duration, err = time.ParseDuration(string(text))
 	return err

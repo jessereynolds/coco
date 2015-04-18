@@ -28,6 +28,7 @@ func errorJSON(err error) []byte {
 }
 
 func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
+	// FIXME(lindsay): error if there are no tiers passed
 	for i, tier := range *tiers {
 		(*tiers)[i].Hash = consistent.New()
 		for _, t := range(tier.Targets) {
@@ -100,6 +101,9 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 			fmt.Fprintf(w, "%q: %s", kv.Key, kv.Value)
 		})
 		fmt.Fprintf(w, "}\n")
+	})
+	m.Get("/lookup", func(params martini.Params, req *http.Request) []byte {
+		return coco.TierLookup(params, req, tiers)
 	})
 
 	log.Printf("info: binding web server to %s", fetch.Bind)
