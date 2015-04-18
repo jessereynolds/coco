@@ -322,7 +322,7 @@ func Api(config ApiConfig, tiers *[]Tier, servers map[string]map[string]int64) {
 type Config struct {
 	Listen	ListenConfig
 	Filter	FilterConfig
-	Send	map[string]SendConfig
+	Tiers	map[string]TierConfig
 	Api		ApiConfig
 	Fetch	FetchConfig
 }
@@ -336,7 +336,7 @@ type FilterConfig struct {
 	Blacklist	string
 }
 
-type SendConfig struct {
+type TierConfig struct {
 	Targets	[]string
 }
 

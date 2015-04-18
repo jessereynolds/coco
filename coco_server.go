@@ -28,7 +28,7 @@ func main() {
 	filtered := make(chan collectd.Packet)
 
 	var tiers []coco.Tier
-	for k, v := range(config.Send) {
+	for k, v := range(config.Tiers) {
 		tier := coco.Tier{Name: k, Targets: v.Targets}
 		tiers = append(tiers, tier)
 	}

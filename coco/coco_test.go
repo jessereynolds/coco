@@ -109,11 +109,11 @@ func TestSend(t *testing.T) {
 	}()
 
 	// Setup sender
-	sendConfig := make(map[string]coco.SendConfig)
-	sendConfig["a"] = coco.SendConfig{ Targets: []string{listenConfig.Bind} }
+	tierConfig := make(map[string]coco.TierConfig)
+	tierConfig["a"] = coco.TierConfig{ Targets: []string{listenConfig.Bind} }
 
 	var tiers []coco.Tier
-	for k, v := range(sendConfig) {
+	for k, v := range(tierConfig) {
 		tier := coco.Tier{Name: k, Targets: v.Targets}
 		tiers = append(tiers, tier)
 	}
@@ -162,13 +162,13 @@ func TestSendTiers(t *testing.T) {
 	}()
 
 	// Setup sender
-	sendConfig := make(map[string]coco.SendConfig)
-	sendConfig["a"] = coco.SendConfig{ Targets: []string{"127.0.0.1:25888"} }
-	sendConfig["b"] = coco.SendConfig{ Targets: []string{"127.0.0.1:25888"} }
-	sendConfig["c"] = coco.SendConfig{ Targets: []string{"127.0.0.1:25888"} }
+	tierConfig := make(map[string]coco.TierConfig)
+	tierConfig["a"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25888"} }
+	tierConfig["b"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25888"} }
+	tierConfig["c"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25888"} }
 
 	var tiers []coco.Tier
-	for k, v := range(sendConfig) {
+	for k, v := range(tierConfig) {
 		tier := coco.Tier{Name: k, Targets: v.Targets}
 		tiers = append(tiers, tier)
 	}
@@ -187,20 +187,20 @@ func TestSendTiers(t *testing.T) {
 	filtered <- send
 
 	time.Sleep(100 * time.Millisecond)
-	if count != len(sendConfig) {
-		t.Errorf("Expected %d packets, got %d", len(sendConfig), count)
+	if count != len(tierConfig) {
+		t.Errorf("Expected %d packets, got %d", len(tierConfig), count)
 	}
 }
 
 func TestApiLookup(t *testing.T) {
 	// Setup sender
-	sendConfig := make(map[string]coco.SendConfig)
-	sendConfig["a"] = coco.SendConfig{ Targets: []string{"127.0.0.1:25887"} }
-	sendConfig["b"] = coco.SendConfig{ Targets: []string{"127.0.0.1:25888"} }
-	sendConfig["c"] = coco.SendConfig{ Targets: []string{"127.0.0.1:25889"} }
+	tierConfig := make(map[string]coco.TierConfig)
+	tierConfig["a"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25887"} }
+	tierConfig["b"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25888"} }
+	tierConfig["c"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25889"} }
 
 	var tiers []coco.Tier
-	for k, v := range(sendConfig) {
+	for k, v := range(tierConfig) {
 		tier := coco.Tier{Name: k, Targets: v.Targets}
 		tiers = append(tiers, tier)
 	}
@@ -231,7 +231,7 @@ func TestApiLookup(t *testing.T) {
 		t.Fatalf("Error when decoding JSON %+v. Response body: %s", err, string(body))
 	}
 
-	for k, v := range(sendConfig) {
+	for k, v := range(tierConfig) {
 		if result[k] != v.Targets[0] {
 			t.Errorf("Couldn't find tier %s in response: %s", k, string(body))
 		}
