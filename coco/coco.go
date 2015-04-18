@@ -345,7 +345,6 @@ type ApiConfig struct {
 }
 
 type FetchConfig struct {
-	Targets	[]string
 	Bind	string
 	Timeout	duration `toml:"proxy_timeout"`
 }
