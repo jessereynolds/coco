@@ -103,6 +103,48 @@ func TestFetch(t *testing.T) {
 	}
 }
 
+// Test a bad fetch results in an error
+func TestFetchWithFailure(t *testing.T) {
+	go MockVisage()
+
+	// Setup Fetch
+	fetchConfig := coco.FetchConfig{
+		Bind: "127.0.0.1:26083",
+		Timeout: *new(coco.Duration), //.UnmarshalText([]byte("1s")),
+		RemotePort: "29293",
+	}
+
+	tierConfig := make(map[string]coco.TierConfig)
+	tierConfig["a"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25887"} }
+	tierConfig["b"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25888"} }
+	tierConfig["c"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25889"} }
+
+	var tiers []coco.Tier
+	for k, v := range(tierConfig) {
+		tier := coco.Tier{Name: k, Targets: v.Targets}
+		tiers = append(tiers, tier)
+	}
+
+	go noodle.Fetch(fetchConfig, &tiers)
+
+	poll(t, fetchConfig.Bind)
+
+	// Test
+	params := visage.Params{
+		Endpoint: fetchConfig.Bind,
+		Host:     "highest",
+		Plugin:   "load",
+		Instance: "load",
+		Ds:		  "value",
+		Window:   3 * time.Hour,
+	}
+
+	body, err := visage.Fetch(params)
+	if err == nil {
+		t.Fatalf("Expected error when fetching Visage data, got: %+v\n", body)
+	}
+}
+
 // Test the lookup function for determining where a metric is stored
 func TestTierLookup(t *testing.T) {
 	// Setup Fetch
