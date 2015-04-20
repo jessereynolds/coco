@@ -353,8 +353,11 @@ type ApiConfig struct {
 }
 
 type FetchConfig struct {
-	Bind	string
-	Timeout	Duration `toml:"proxy_timeout"`
+	Bind		string
+	Timeout		Duration `toml:"proxy_timeout"`
+	// FIXME(lindsay): RemotePort is a bit of a code smell.
+	// Ideally every target could define its own port for collectd + Visage.
+	RemotePort	string `toml:"remote_port"`
 }
 
 type Duration struct {

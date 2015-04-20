@@ -4,11 +4,38 @@ import (
 	"testing"
 	"github.com/bulletproofnetworks/marksman/coco/coco"
 	"github.com/bulletproofnetworks/marksman/coco/noodle"
+	"github.com/bulletproofnetworks/marksman/coco/visage"
 	"net/http"
 	"io/ioutil"
 	"encoding/json"
 	"net"
+	"time"
+	"github.com/go-martini/martini"
 )
+
+func MockVisage() {
+	m := martini.Classic()
+	m.Get("/data/:hostname/:plugin/:instance", func(params martini.Params, req *http.Request) []byte {
+		var resp interface{}
+		resp = map[string]interface{}{
+			params["hostname"]: map[string]interface{}{
+				params["plugin"]: map[string]interface{}{
+					params["instance"]: map[string]interface{}{
+						"value": map[string]interface{}{
+							"data": make([]float64, 360),
+						},
+					},
+				},
+			},
+		}
+		b, err := json.Marshal(resp)
+		if err != nil {
+			panic("mockvisage: couldn't encode json")
+		}
+		return b
+	})
+	http.ListenAndServe("127.0.0.1:29292", m)
+}
 
 func poll(t *testing.T, address string) {
 	for i := 0 ; i < 1000 ; i++ {
@@ -27,10 +54,54 @@ Fetch
  - progressively falls back on tiers if first doesn't have data
  - provides empty response if no tiers return data
 */
-/*
+
+// Test data can be fetched from noodle
 func TestFetch(t *testing.T) {
+	go MockVisage()
+
+	// Setup Fetch
+	fetchConfig := coco.FetchConfig{
+		Bind: "127.0.0.1:26082",
+		Timeout: *new(coco.Duration), //.UnmarshalText([]byte("1s")),
+		RemotePort: "29292",
+	}
+
+	tierConfig := make(map[string]coco.TierConfig)
+	tierConfig["a"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25887"} }
+	tierConfig["b"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25888"} }
+	tierConfig["c"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25889"} }
+
+	var tiers []coco.Tier
+	for k, v := range(tierConfig) {
+		tier := coco.Tier{Name: k, Targets: v.Targets}
+		tiers = append(tiers, tier)
+	}
+
+	go noodle.Fetch(fetchConfig, &tiers)
+
+	poll(t, fetchConfig.Bind)
+
+	// Test
+	params := visage.Params{
+		Endpoint: fetchConfig.Bind,
+		Host:     "highest",
+		Plugin:   "load",
+		Instance: "load",
+		Ds:		  "value",
+		Window:   3 * time.Hour,
+	}
+
+	window, err := visage.Fetch(params)
+	if err != nil {
+		t.Fatalf("Error when fetching Visage data: %s\n", err)
+	}
+
+	for i, v := range(window) {
+		if (v != 0.0) {
+			t.Errorf("Unexpected value: expected %f got %f at %d", 0.0, v, i)
+		}
+	}
 }
-*/
 
 // Test the lookup function for determining where a metric is stored
 func TestTierLookup(t *testing.T) {
@@ -45,7 +116,6 @@ func TestTierLookup(t *testing.T) {
 	tierConfig["b"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25888"} }
 	tierConfig["c"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25889"} }
 
-	// FIXME(lindsay): Refactor this into Tiers() function
 	var tiers []coco.Tier
 	for k, v := range(tierConfig) {
 		tier := coco.Tier{Name: k, Targets: v.Targets}
@@ -87,7 +157,6 @@ func TestExpvars(t *testing.T) {
 	tierConfig := make(map[string]coco.TierConfig)
 	tierConfig["a"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25887"} }
 
-	// FIXME(lindsay): Refactor this into Tiers() function
 	var tiers []coco.Tier
 	for k, v := range(tierConfig) {
 		tier := coco.Tier{Name: k, Targets: v.Targets}

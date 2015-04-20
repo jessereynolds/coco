@@ -45,17 +45,29 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 			// Lookup the hostname in the tier's hash. Work out where we should proxy to.
 			site, err := tier.Hash.Get(params["hostname"])
 			if err != nil {
-				defer func() { errorCounts.Add("con.get", 1) }()
+				defer func() {
+					fmt.Printf("%+v\n", errorCounts)
+					errorCounts.Add("con.get", 1)
+				}()
 				return errorJSON(err)
 			}
 
 			// Construct the URL, and do the GET
-			host := strings.Split(site, ":")[0]
+			var host string
+			if len(fetch.RemotePort) > 0 {
+				// FIXME(lindsay) look up fetch port per-target?
+				host = strings.Split(site, ":")[0] + ":" + fetch.RemotePort
+			} else {
+				host = strings.Split(site, ":")[0]
+			}
+			fmt.Println("host", host)
 			url := "http://" + host + req.RequestURI
 			client := &http.Client{ Timeout: fetch.Timeout.Duration }
 			resp, err := client.Get(url)
 			if err != nil {
-				defer func() { errorCounts.Add("http.get", 1) }()
+				defer func() {
+					errorCounts.Add("http.get", 1)
+				}()
 				return errorJSON(err)
 			}
 			defer resp.Body.Close()
@@ -99,15 +111,8 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 }
 
 var (
-	fetchCounts  = expvar.NewMap("target.requests")
-	respCounts   = expvar.NewMap("target.response.codes")
-	bytesProxied = expvar.NewInt("bytes.proxied")
-	errorCounts	*expvar.Map
+	fetchCounts		= expvar.NewMap("noodle.fetch.target.requests")
+	respCounts		= expvar.NewMap("noodle.fetch.target.response.codes")
+	bytesProxied	= expvar.NewInt("noodle.fetch.bytes.proxied")
+	errorCounts		= expvar.NewMap("noodle.errors")
 )
-
-func init() {
-	errors := expvar.Get("errors")
-	if errors == nil {
-		errorCounts = expvar.NewMap("errors")
-	}
-}
