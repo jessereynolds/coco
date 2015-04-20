@@ -27,11 +27,16 @@ func extract(data map[string]interface{}, params Params) (series interface{}, er
 			err = errors.New("Series not found in JSON")
 		}
 	}()
-	series = data[params.Host].
-			(map[string]interface{})[params.Plugin].
-			(map[string]interface{})[params.Instance].
-			(map[string]interface{})[params.Ds].
-			(map[string]interface{})["data"]
+
+	if val, ok := data["error"]; ok {
+		err = errors.New(val.(string))
+	} else {
+		series = data[params.Host].
+				(map[string]interface{})[params.Plugin].
+				(map[string]interface{})[params.Instance].
+				(map[string]interface{})[params.Ds].
+				(map[string]interface{})["data"]
+	}
 
 	return series, err
 }
