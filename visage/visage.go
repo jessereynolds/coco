@@ -8,17 +8,8 @@ import (
 	"strings"
 	"time"
 	"strconv"
+	"errors"
 )
-
-
-/*
-func Fetch(endpoint string, base string, rrd string, window time.Duration) ([]float64) {
-	host     := base
-	plugin   := "curl_json-coco"
-	instance := "operations-errors-send-write"
-	//instance := "operations-send-" + rrd + ":25826"
-	ds       := "value"
-*/
 
 type Params struct {
 	Endpoint string
@@ -29,8 +20,24 @@ type Params struct {
 	Window	 time.Duration
 }
 
+func extract(data map[string]interface{}, params Params) (series interface{}, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			series = nil
+			err = errors.New("Series not found in JSON")
+		}
+	}()
+	series = data[params.Host].
+			(map[string]interface{})[params.Plugin].
+			(map[string]interface{})[params.Instance].
+			(map[string]interface{})[params.Ds].
+			(map[string]interface{})["data"]
+
+	return series, err
+}
+
 // Fetch queries Visage and returns an array of numerical metrics
-func Fetch(params Params) ([]float64) {
+func Fetch(params Params) ([]float64, error) {
 	// Construct the path
 	parts  := []string{"http:/", params.Endpoint, "data", params.Host, params.Plugin, params.Instance}
 	path   := strings.Join(parts, "/")
@@ -56,18 +63,15 @@ func Fetch(params Params) ([]float64) {
 	var data map[string]interface{}
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		panic(err)
+		return make([]float64,0), err
 	}
 
-	// Traverse the returned data structure. This may panic if the returned data
-	// doesn't match the plugin/instance format, but we'll catch it with handleErrors()
-	series := data[params.Host].
-	(map[string]interface{})[params.Plugin].
-	(map[string]interface{})[params.Instance].
-	(map[string]interface{})
+	series, err := extract(data, params)
+	if err != nil {
+		return make([]float64,0), err
+	}
 
-	datas := series[params.Ds].(map[string]interface{})["data"]
-	values := datas.([]interface{})
+	values := series.([]interface{})
 
 	slice := []float64{}
 
@@ -78,5 +82,5 @@ func Fetch(params Params) ([]float64) {
 		}
 	}
 
-	return slice
+	return slice, nil
 }
