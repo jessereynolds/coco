@@ -319,7 +319,6 @@ func ExpvarHandler(w http.ResponseWriter, r *http.Request) {
 			sys := parts[0]
 			key := parts[1]
 			systems[sys][key] = kv.Value
-			//fmt.Printf("%q %q: %s\n", sys, key, kv.Value)
 		} else {
 			if !first {
 				fmt.Fprintf(w, ",")
@@ -328,8 +327,20 @@ func ExpvarHandler(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "%q: %s", kv.Key, kv.Value)
 		}
 	})
-	b, _ := json.Marshal(systems)
-	fmt.Fprintf(w, ",%s", b[1:len(b) - 1])
+
+	for k, _ := range(systems) {
+		first = true
+		fmt.Fprintf(w, ",%q: {", k)
+		for k, v := range(systems[k]) {
+			if !first {
+				fmt.Fprintf(w, ",")
+			}
+			first = false
+			fmt.Fprintf(w, "%q:%s", k, v)
+		}
+		fmt.Fprintf(w, "}")
+	}
+
 	fmt.Fprintf(w, "}\n")
 }
 
