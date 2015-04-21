@@ -91,6 +91,12 @@ func main() {
 		fmt.Printf("UNKNOWN: Unable to fetch Visage JSON: %s\n", err)
 		os.Exit(3)
 	}
+
+	if len(window) < 20 {
+		fmt.Printf("UNKNOWN: Expected > %d datapoints, got %d. Coco running\n", 20, len(window))
+		os.Exit(3)
+	}
+
  	// Bisect the window into two equal length windows.
 	window1, window2 := ks.BisectAndSortWindow(window)
  	// Find the D-statistic
