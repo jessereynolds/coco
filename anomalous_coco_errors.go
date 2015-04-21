@@ -85,7 +85,11 @@ func main() {
 		Ds:		  "value",
 		Window:   *window,
 	}
-	window := visage.Fetch(params)
+	window, err := visage.Fetch(params)
+	if err != nil {
+		fmt.Printf("UNKNOWN: Unable to fetch Visage JSON: %s\n", err)
+		os.Exit(3)
+	}
  	// Bisect the window into two equal length windows.
 	window1, window2 := ks.BisectAndSortWindow(window)
  	// Find the D-statistic
