@@ -308,13 +308,28 @@ func ExpvarHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	fmt.Fprintf(w, "{")
 	first := true
+	systems := map[string]map[string]interface{}{}
+	systems["coco"] = make(map[string]interface{})
+	systems["noodle"] = make(map[string]interface{})
+
 	expvar.Do(func(kv expvar.KeyValue) {
-		if !first {
-			fmt.Fprintf(w, ",")
+		re := regexp.MustCompile("^(coco|noodle)")
+		if re.FindStringIndex(kv.Key) != nil {
+			parts := strings.SplitN(kv.Key, ".", 2)
+			sys := parts[0]
+			key := parts[1]
+			systems[sys][key] = kv.Value
+			//fmt.Printf("%q %q: %s\n", sys, key, kv.Value)
+		} else {
+			if !first {
+				fmt.Fprintf(w, ",")
+			}
+			first = false
+			fmt.Fprintf(w, "%q: %s", kv.Key, kv.Value)
 		}
-		first = false
-		fmt.Fprintf(w, "%q: %s", kv.Key, kv.Value)
 	})
+	b, _ := json.Marshal(systems)
+	fmt.Fprintf(w, ",%s", b[1:len(b) - 1])
 	fmt.Fprintf(w, "}\n")
 }
 

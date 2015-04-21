@@ -111,14 +111,6 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 	log.Fatal(http.ListenAndServe(fetch.Bind, m))
 }
 
-func errors() interface{} {
-	data := map[string]interface{}{
-		"errors": expvar.Get("noodle.errors"),
-	}
-
-	return data
-}
-
 var (
 	tierCounts = expvar.NewMap("noodle.fetch.tier.requests")
 	reqCounts = expvar.NewMap("noodle.fetch.target.requests")
@@ -126,7 +118,3 @@ var (
 	bytesProxied = expvar.NewInt("noodle.fetch.bytes.proxied")
 	errorCounts	= expvar.NewMap("noodle.errors")
 )
-
-func init() {
-	expvar.Publish("noodle", expvar.Func(errors))
-}
