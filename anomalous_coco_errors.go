@@ -84,6 +84,7 @@ func main() {
 		Instance: "operations-errors-send-write",
 		Ds:		  "value",
 		Window:   *window,
+		Debug:    *debug,
 	}
 	window, err := visage.Fetch(params)
 	if err != nil {

@@ -86,6 +86,7 @@ func main() {
 		Instance: "operations-send-" + *rrd + ":25826",
 		Ds:		  "value",
 		Window:   *window,
+		Debug:    *debug,
 	}
 	window, err := visage.Fetch(params)
 	if err != nil {
