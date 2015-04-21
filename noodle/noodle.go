@@ -28,6 +28,11 @@ func errorJSON(err error) []byte {
 }
 
 func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
+	fetchCounts := expvar.NewMap("fetch.target.requests")
+	respCounts := expvar.NewMap("fetch.target.response.codes")
+	bytesProxied := expvar.NewInt("fetch.bytes.proxied")
+	errorCounts	:= expvar.NewMap("fetch.errors")
+
 	if len(fetch.Bind) == 0 {
 		log.Fatal("fatal: No address configured to bind web server.")
 	}
@@ -110,9 +115,3 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 	log.Fatal(http.ListenAndServe(fetch.Bind, m))
 }
 
-var (
-	fetchCounts		= expvar.NewMap("noodle.fetch.target.requests")
-	respCounts		= expvar.NewMap("noodle.fetch.target.response.codes")
-	bytesProxied	= expvar.NewInt("noodle.fetch.bytes.proxied")
-	errorCounts		= expvar.NewMap("noodle.errors")
-)
