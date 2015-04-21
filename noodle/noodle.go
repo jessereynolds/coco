@@ -28,7 +28,8 @@ func errorJSON(err error) []byte {
 }
 
 func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
-	fetchCounts := expvar.NewMap("fetch.target.requests")
+	tierCounts := expvar.NewMap("fetch.tier.requests")
+	reqCounts := expvar.NewMap("fetch.target.requests")
 	respCounts := expvar.NewMap("fetch.target.response.codes")
 	bytesProxied := expvar.NewInt("fetch.bytes.proxied")
 	errorCounts	:= expvar.NewMap("fetch.errors")
@@ -89,10 +90,11 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 
 			// Track metrics for a successful proxy request
 			defer func() {
-				fetchCounts.Add(site, 1) // the site in the ring we proxied to
-				fetchCounts.Add("total", 1)
+				reqCounts.Add(site, 1) // the site in the hash we proxied to
+				reqCounts.Add("total", 1)
 				respCounts.Add(strconv.Itoa(resp.StatusCode), 1)
 				bytesProxied.Add(resp.ContentLength)
+				tierCounts.Add(tier.Name, 1)
 			}()
 
 			// return the body
