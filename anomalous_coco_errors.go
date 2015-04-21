@@ -93,7 +93,7 @@ func main() {
 	}
 
 	if len(window) < 20 {
-		fmt.Printf("UNKNOWN: Expected > %d datapoints, got %d. Coco running\n", 20, len(window))
+		fmt.Printf("UNKNOWN: Expected > %d datapoints, got %d. Coco running?\n", 20, len(window))
 		os.Exit(3)
 	}
 
