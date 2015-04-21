@@ -19,9 +19,6 @@ import (
 
 // Listen for collectd network packets, parse , and send them over a channel
 func Listen(config ListenConfig, c chan collectd.Packet) {
-	listenCounts := expvar.NewMap("listen")
-	errorCounts := expvar.NewMap("listen.errors")
-
 	laddr, err := net.ResolveUDPAddr("udp", config.Bind)
 	if err != nil {
 		log.Fatalln("fatal: failed to resolve address", err)
@@ -45,7 +42,7 @@ func Listen(config ListenConfig, c chan collectd.Packet) {
 		n, err := conn.Read(buf[:])
 		if err != nil {
 			log.Println("error: Failed to receive packet", err)
-			errorCounts.Add("receive", 1)
+			errorCounts.Add("fetch.receive", 1)
 			continue
 		}
 		listenCounts.Add("raw", 1)
@@ -79,13 +76,10 @@ func MetricName(packet collectd.Packet) (string) {
 }
 
 func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collectd.Packet, servers map[string]map[string]int64) {
-	filterCounts := expvar.NewMap("filter")
-	errorCounts := expvar.NewMap("filter.errors")
-
 	// Track unhandled errors
 	defer func() {
 		if r := recover() ; r != nil {
-			errorCounts.Add("unhandled", 1)
+			errorCounts.Add("filter.unhandled", 1)
 		}
 	}()
 
@@ -106,10 +100,6 @@ func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collect
 }
 
 func Send(tiers *[]Tier, filtered chan collectd.Packet, servers map[string]map[string]int64) {
-	sendCounts := expvar.NewMap("send")
-	hashCounts := expvar.NewMap("hash")
-	errorCounts := expvar.NewMap("send.errors")
-
 	connections := make(map[string]net.Conn)
 
 	for i, tier := range *tiers {
@@ -119,7 +109,7 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, servers map[string]map[s
 			conn, err := net.Dial("udp", t)
 			if err != nil {
 				log.Printf("error: send: %s: %+v", t, err)
-				errorCounts.Add("dial", 1)
+				errorCounts.Add("send.dial", 1)
 			} else {
 				// Only add the target to the hash if the connection can initially be established
 				re := regexp.MustCompile("^(127.|localhost)")
@@ -288,9 +278,6 @@ func Encode(packet collectd.Packet) ([]byte) {
 }
 
 func TierLookup(params martini.Params, req *http.Request, tiers *[]Tier) []byte {
-	lookupCounts := expvar.NewMap("lookup")
-	errorCounts := expvar.NewMap("lookup.errors")
-
 	qs := req.URL.Query()
 	if len(qs["name"]) > 0 {
 		name := qs["name"][0]
@@ -300,7 +287,7 @@ func TierLookup(params martini.Params, req *http.Request, tiers *[]Tier) []byte 
 			server, err := tier.Hash.Get(name)
 			if err != nil {
 				defer func() {
-					errorCounts.Add("hash.get", 1)
+					errorCounts.Add("lookup.hash.get", 1)
 					log.Printf("error: api: %s: %+v\n", name, err)
 				}()
 			}
@@ -401,3 +388,12 @@ type Tier struct {
 	Targets	[]string
 	Hash	*consistent.Consistent
 }
+
+var (
+	listenCounts = expvar.NewMap("coco.listen")
+	filterCounts = expvar.NewMap("coco.filter")
+	sendCounts = expvar.NewMap("coco.send")
+	hashCounts = expvar.NewMap("coco.hash")
+	lookupCounts = expvar.NewMap("coco.lookup")
+	errorCounts = expvar.NewMap("coco.errors")
+)
