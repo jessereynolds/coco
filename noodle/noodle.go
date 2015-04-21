@@ -47,7 +47,7 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 			if err != nil {
 				defer func() {
 					fmt.Printf("%+v\n", errorCounts)
-					errorCounts.Add("con.get", 1)
+					errorCounts.Add("fetch.con.get", 1)
 				}()
 				return errorJSON(err)
 			}
@@ -66,7 +66,7 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 			resp, err := client.Get(url)
 			if err != nil {
 				defer func() {
-					errorCounts.Add("http.get", 1)
+					errorCounts.Add("fetch.http.get", 1)
 				}()
 				return errorJSON(err)
 			}
@@ -78,7 +78,7 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 			// Read the body, check for any errors
 			body, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				defer func() { errorCounts.Add("ioutil.readall", 1) }()
+				defer func() { errorCounts.Add("fetch.ioutil.readall", 1) }()
 				return errorJSON(err)
 			}
 

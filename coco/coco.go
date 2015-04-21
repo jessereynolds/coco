@@ -151,7 +151,7 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, servers map[string]map[s
 			payload := Encode(packet)
 			_, err = connections[target].Write(payload)
 			if err != nil {
-				errorCounts.Add("write", 1)
+				errorCounts.Add("send.write", 1)
 				continue
 			}
 
