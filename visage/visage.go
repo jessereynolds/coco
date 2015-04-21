@@ -9,6 +9,7 @@ import (
 	"time"
 	"strconv"
 	"errors"
+	"fmt"
 )
 
 type Params struct {
@@ -18,11 +19,15 @@ type Params struct {
 	Instance string
 	Ds		 string
 	Window	 time.Duration
+	Debug	 bool
 }
 
 func extract(data map[string]interface{}, params Params) (series interface{}, err error) {
 	defer func() {
 		if r := recover(); r != nil {
+			if params.Debug {
+				fmt.Printf("Series: %+v\n", data)
+			}
 			series = nil
 			err = errors.New("Series not found in JSON")
 		}
@@ -55,6 +60,9 @@ func Fetch(params Params) ([]float64, error) {
 	// Construct the URL
 	url := path + "?" + query.Encode()
 
+	if params.Debug {
+		fmt.Printf("URL: %s\n", url)
+	}
 	// Make the request
 	resp, err := http.Get(url)
 	if err != nil {
