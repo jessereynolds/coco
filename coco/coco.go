@@ -377,16 +377,9 @@ type Tier struct {
 }
 
 var (
-	listenCounts = expvar.NewMap("listen")
-	filterCounts = expvar.NewMap("filter")
-	sendCounts = expvar.NewMap("send")
-	hashCounts = expvar.NewMap("metrics")
-	errorCounts	*expvar.Map
+	listenCounts	= expvar.NewMap("coco.listen")
+	filterCounts	= expvar.NewMap("coco.filter")
+	sendCounts  	= expvar.NewMap("coco.send")
+	hashCounts  	= expvar.NewMap("coco.metrics")
+	errorCounts 	= expvar.NewMap("coco.errors")
 )
-
-func init() {
-	errors := expvar.Get("errors")
-	if errors == nil {
-		errorCounts = expvar.NewMap("errors")
-	}
-}
