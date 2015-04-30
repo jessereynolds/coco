@@ -38,10 +38,10 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"gopkg.in/alecthomas/kingpin.v1"
-	"github.com/bulletproofnetworks/marksman/coco/visage"
 	"github.com/bulletproofnetworks/marksman/coco/ks"
+	"github.com/bulletproofnetworks/marksman/coco/visage"
+	"gopkg.in/alecthomas/kingpin.v1"
+	"os"
 )
 
 // handleErrors performs global error handling for unhandled errors
@@ -54,12 +54,12 @@ func handleErrors() {
 }
 
 var (
-	host 		= kingpin.Flag("host", "The host to query metrics from").Required().String()
-	rrd         = kingpin.Flag("rrd", "The storage node to test").Required().String()
-	endpoint	= kingpin.Flag("endpoint", "Visage endpoint to query").Required().String()
-	deviation	= kingpin.Flag("maximum-deviation", "Acceptable deviation for KS test").Default("10.0").Float()
-	window		= kingpin.Flag("window", "Window of time to analyse").Default("120s").Duration()
-	debug       = kingpin.Flag("debug", "Enable verbose output (default false)").Bool()
+	host      = kingpin.Flag("host", "The host to query metrics from").Required().String()
+	rrd       = kingpin.Flag("rrd", "The storage node to test").Required().String()
+	endpoint  = kingpin.Flag("endpoint", "Visage endpoint to query").Required().String()
+	deviation = kingpin.Flag("maximum-deviation", "Acceptable deviation for KS test").Default("10.0").Float()
+	window    = kingpin.Flag("window", "Window of time to analyse").Default("120s").Duration()
+	debug     = kingpin.Flag("debug", "Enable verbose output (default false)").Bool()
 )
 
 func main() {
@@ -84,7 +84,7 @@ func main() {
 		Host:     *host,
 		Plugin:   "curl_json-coco",
 		Instance: "operations-send-" + *rrd + ":25826",
-		Ds:		  "value",
+		Ds:       "value",
 		Window:   *window,
 		Debug:    *debug,
 	}
@@ -99,9 +99,9 @@ func main() {
 		os.Exit(3)
 	}
 
- 	// Bisect the window into two equal length windows.
+	// Bisect the window into two equal length windows.
 	window1, window2 := ks.BisectAndSortWindow(window)
- 	// Find the D-statistic
+	// Find the D-statistic
 	max, maxIndex := ks.FindMaxDeviation(window1, window2)
 
 	if *debug {

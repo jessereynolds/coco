@@ -1,28 +1,28 @@
 package noodle
 
 import (
-	"log"
-	"github.com/go-martini/martini"
-	"net/http"
-	"expvar"
-	"fmt"
-	"io/ioutil"
-	"strings"
-	"strconv"
 	"bytes"
 	"encoding/json"
-	consistent "github.com/stathat/consistent"
+	"expvar"
+	"fmt"
 	"github.com/bulletproofnetworks/marksman/coco/coco"
+	"github.com/go-martini/martini"
+	consistent "github.com/stathat/consistent"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"strconv"
+	"strings"
 )
 
 type ErrorJSON struct {
-	Msg		string `json:"error"`
+	Msg string `json:"error"`
 }
 
 func errorJSON(err error) []byte {
 	buf := new(bytes.Buffer)
 	fmt.Fprintf(buf, "%+v", err)
-	errResp := ErrorJSON{Msg: buf.String(),}
+	errResp := ErrorJSON{Msg: buf.String()}
 	e, _ := json.Marshal(errResp)
 	return e
 }
@@ -39,12 +39,12 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 
 	for i, tier := range *tiers {
 		(*tiers)[i].Hash = consistent.New()
-		for _, t := range(tier.Targets) {
+		for _, t := range tier.Targets {
 			(*tiers)[i].Hash.Add(t)
 		}
 	}
 
-    m := martini.Classic()
+	m := martini.Classic()
 	m.Get("/data/:hostname/(.+)", func(params martini.Params, req *http.Request) []byte {
 		for _, tier := range *tiers {
 			// Lookup the hostname in the tier's hash. Work out where we should proxy to.
@@ -67,7 +67,7 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 			}
 			fmt.Println("host", host)
 			url := "http://" + host + req.RequestURI
-			client := &http.Client{ Timeout: fetch.Timeout.Duration }
+			client := &http.Client{Timeout: fetch.Timeout.Duration}
 			resp, err := client.Get(url)
 			if err != nil {
 				defer func() {
@@ -117,9 +117,9 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 }
 
 var (
-	tierCounts = expvar.NewMap("noodle.fetch.tier.requests")
-	reqCounts = expvar.NewMap("noodle.fetch.target.requests")
-	respCounts = expvar.NewMap("noodle.fetch.target.response.codes")
+	tierCounts   = expvar.NewMap("noodle.fetch.tier.requests")
+	reqCounts    = expvar.NewMap("noodle.fetch.target.requests")
+	respCounts   = expvar.NewMap("noodle.fetch.target.response.codes")
 	bytesProxied = expvar.NewInt("noodle.fetch.bytes.proxied")
-	errorCounts	= expvar.NewMap("noodle.errors")
+	errorCounts  = expvar.NewMap("noodle.errors")
 )

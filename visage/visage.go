@@ -1,25 +1,25 @@
 package visage
 
 import (
-	"net/http"
-	"net/url"
-	"io/ioutil"
 	"encoding/json"
-	"strings"
-	"time"
-	"strconv"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
 )
 
 type Params struct {
 	Endpoint string
-	Host	 string
-	Plugin	 string
+	Host     string
+	Plugin   string
 	Instance string
-	Ds		 string
-	Window	 time.Duration
-	Debug	 bool
+	Ds       string
+	Window   time.Duration
+	Debug    bool
 }
 
 func extract(data map[string]interface{}, params Params) (series interface{}, err error) {
@@ -36,11 +36,7 @@ func extract(data map[string]interface{}, params Params) (series interface{}, er
 	if val, ok := data["error"]; ok {
 		err = errors.New(val.(string))
 	} else {
-		series = data[params.Host].
-				(map[string]interface{})[params.Plugin].
-				(map[string]interface{})[params.Instance].
-				(map[string]interface{})[params.Ds].
-				(map[string]interface{})["data"]
+		series = data[params.Host].(map[string]interface{})[params.Plugin].(map[string]interface{})[params.Instance].(map[string]interface{})[params.Ds].(map[string]interface{})["data"]
 	}
 
 	return series, err
@@ -49,12 +45,12 @@ func extract(data map[string]interface{}, params Params) (series interface{}, er
 // Fetch queries Visage and returns an array of numerical metrics
 func Fetch(params Params) ([]float64, error) {
 	// Construct the path
-	parts  := []string{"http:/", params.Endpoint, "data", params.Host, params.Plugin, params.Instance}
-	path   := strings.Join(parts, "/")
+	parts := []string{"http:/", params.Endpoint, "data", params.Host, params.Plugin, params.Instance}
+	path := strings.Join(parts, "/")
 
 	// Construct the parameters
 	query := url.Values{}
-	start  := strconv.Itoa(int(time.Now().Unix() - int64(params.Window.Seconds())))
+	start := strconv.Itoa(int(time.Now().Unix() - int64(params.Window.Seconds())))
 	query.Add("start", start)
 
 	// Construct the URL
@@ -76,12 +72,12 @@ func Fetch(params Params) ([]float64, error) {
 	var data map[string]interface{}
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return make([]float64,0), err
+		return make([]float64, 0), err
 	}
 
 	series, err := extract(data, params)
 	if err != nil {
-		return make([]float64,0), err
+		return make([]float64, 0), err
 	}
 
 	values := series.([]interface{})
@@ -89,7 +85,7 @@ func Fetch(params Params) ([]float64, error) {
 	slice := []float64{}
 
 	// Iterate through all the values, drop ones that aren't float64s
-	for _, v := range(values) {
+	for _, v := range values {
 		if vf, ok := v.(float64); ok {
 			slice = append(slice, vf)
 		}

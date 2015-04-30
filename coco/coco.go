@@ -1,20 +1,20 @@
 package coco
 
 import (
-	"log"
-	"strings"
 	"bytes"
-	"regexp"
-	"time"
-	"github.com/go-martini/martini"
-	"encoding/json"
 	"encoding/binary"
-	"net/http"
-	"net"
+	"encoding/json"
 	"expvar"
 	"fmt"
-	consistent "github.com/stathat/consistent"
+	"github.com/go-martini/martini"
 	collectd "github.com/kimor79/gollectd"
+	consistent "github.com/stathat/consistent"
+	"log"
+	"net"
+	"net/http"
+	"regexp"
+	"strings"
+	"time"
 )
 
 // Listen for collectd network packets, parse , and send them over a channel
@@ -58,7 +58,7 @@ func Listen(config ListenConfig, c chan collectd.Packet) {
 	}
 }
 
-func MetricName(packet collectd.Packet) (string) {
+func MetricName(packet collectd.Packet) string {
 	parts := []string{
 		packet.Hostname,
 		packet.Plugin,
@@ -84,18 +84,18 @@ func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collect
 
 	// Track unhandled errors
 	defer func() {
-		if r := recover() ; r != nil {
+		if r := recover(); r != nil {
 			errorCounts.Add("filter.unhandled", 1)
 		}
 	}()
 
 	servers["filtered"] = make(map[string]int64)
 	for {
-		packet := <- raw
+		packet := <-raw
 		name := MetricName(packet)
 
 		re := regexp.MustCompile(config.Blacklist)
-		if (re.FindStringIndex(name) == nil) {
+		if re.FindStringIndex(name) == nil {
 			filtered <- packet
 			filterCounts.Add("accepted", 1)
 		} else {
@@ -115,7 +115,7 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, servers map[string]map[s
 	for i, tier := range *tiers {
 		(*tiers)[i].Hash = consistent.New()
 
-		for _, t := range(tier.Targets) {
+		for _, t := range tier.Targets {
 			conn, err := net.Dial("udp", t)
 			if err != nil {
 				log.Printf("error: send: %s: %+v", t, err)
@@ -146,7 +146,7 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, servers map[string]map[s
 	}
 
 	for {
-		packet := <- filtered
+		packet := <-filtered
 		for _, tier := range *tiers {
 			// Get the target we should forward the packet to
 			target, err := tier.Hash.Get(packet.Hostname)
@@ -174,7 +174,7 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, servers map[string]map[s
 }
 
 // Encode a Packet into the collectd wire protocol format.
-func Encode(packet collectd.Packet) ([]byte) {
+func Encode(packet collectd.Packet) []byte {
 	// String parts have a length of 5, because there is a terminating null byte
 	// Numeric parts have a length of 4, because there is no terminating null byte
 
@@ -279,10 +279,10 @@ func Encode(packet collectd.Packet) ([]byte) {
 	}
 
 	// type(2) + length(2) + number of values(2) == 6
-	buf = append(buf, []byte{0, collectd.ParseValues}...) // type
+	buf = append(buf, []byte{0, collectd.ParseValues}...)     // type
 	buf = append(buf, []byte{0, byte(len(valuesBuf) + 6)}...) // length
 	buf = append(buf, []byte{0, byte(len(packet.Values))}...) // number of values
-	buf = append(buf, valuesBuf...) // values themselves
+	buf = append(buf, valuesBuf...)                           // values themselves
 
 	return buf
 }
@@ -341,10 +341,10 @@ func ExpvarHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	})
 
-	for k, _ := range(systems) {
+	for k, _ := range systems {
 		first = true
 		fmt.Fprintf(w, ",%q: {", k)
-		for k, v := range(systems[k]) {
+		for k, v := range systems[k] {
 			if !first {
 				fmt.Fprintf(w, ",")
 			}
@@ -358,18 +358,18 @@ func ExpvarHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func Api(config ApiConfig, tiers *[]Tier, servers map[string]map[string]int64) {
-    m := martini.Classic()
+	m := martini.Classic()
 	// Endpoint for looking up what storage nodes own metrics for a host
 	m.Get("/lookup", func(params martini.Params, req *http.Request) []byte {
 		return TierLookup(params, req, tiers)
 	})
 	// Dump out the list of servers Coco is tracking
-    m.Group("/servers", func(r martini.Router) {
-        r.Get("", func() []byte {
-            data, _ := json.Marshal(servers)
-            return data
-        })
-    })
+	m.Group("/servers", func(r martini.Router) {
+		r.Get("", func() []byte {
+			data, _ := json.Marshal(servers)
+			return data
+		})
+	})
 	// Implement expvars.expvarHandler in Martini.
 	m.Get("/debug/vars", func(w http.ResponseWriter, r *http.Request) {
 		ExpvarHandler(w, r)
@@ -380,36 +380,36 @@ func Api(config ApiConfig, tiers *[]Tier, servers map[string]map[string]int64) {
 }
 
 type Config struct {
-	Listen	ListenConfig
-	Filter	FilterConfig
-	Tiers	map[string]TierConfig
-	Api		ApiConfig
-	Fetch	FetchConfig
+	Listen ListenConfig
+	Filter FilterConfig
+	Tiers  map[string]TierConfig
+	Api    ApiConfig
+	Fetch  FetchConfig
 }
 
 type ListenConfig struct {
-	Bind	string
-	Typesdb	string
+	Bind    string
+	Typesdb string
 }
 
 type FilterConfig struct {
-	Blacklist	string
+	Blacklist string
 }
 
 type TierConfig struct {
-	Targets	[]string
+	Targets []string
 }
 
 type ApiConfig struct {
-	Bind	string
+	Bind string
 }
 
 type FetchConfig struct {
-	Bind		string
-	Timeout		Duration `toml:"proxy_timeout"`
+	Bind    string
+	Timeout Duration `toml:"proxy_timeout"`
 	// FIXME(lindsay): RemotePort is a bit of a code smell.
 	// Ideally every target could define its own port for collectd + Visage.
-	RemotePort	string `toml:"remote_port"`
+	RemotePort string `toml:"remote_port"`
 }
 
 type Duration struct {
@@ -423,16 +423,16 @@ func (d *Duration) UnmarshalText(text []byte) error {
 }
 
 type Tier struct {
-	Name	string
-	Targets	[]string
-	Hash	*consistent.Consistent
+	Name    string
+	Targets []string
+	Hash    *consistent.Consistent
 }
 
 var (
 	listenCounts = expvar.NewMap("coco.listen")
 	filterCounts = expvar.NewMap("coco.filter")
-	sendCounts = expvar.NewMap("coco.send")
-	hashCounts = expvar.NewMap("coco.hash")
+	sendCounts   = expvar.NewMap("coco.send")
+	hashCounts   = expvar.NewMap("coco.hash")
 	lookupCounts = expvar.NewMap("coco.lookup")
-	errorCounts = expvar.NewMap("coco.errors")
+	errorCounts  = expvar.NewMap("coco.errors")
 )

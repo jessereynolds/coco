@@ -2,14 +2,14 @@ package ks
 
 import (
 	"fmt"
-	"os/exec"
 	"io/ioutil"
-	"sort"
 	"math"
+	"os/exec"
+	"sort"
 )
 
 // SortWindow sorts a window of data numerically.
-func SortWindow(window []float64) ([]float64) {
+func SortWindow(window []float64) []float64 {
 	sorted := make([]float64, len(window))
 	copy(sorted, window)
 
@@ -51,7 +51,7 @@ func Plot(window1 []float64, window2 []float64, max float64, maxi int) {
 	}
 
 	cmd := exec.Command("gnuplot")
-	stdin, err  := cmd.StdinPipe()
+	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		fmt.Println("WARNING: plot: couldn't attach to stdin.")
 		return
@@ -69,10 +69,10 @@ func Plot(window1 []float64, window2 []float64, max float64, maxi int) {
 
 	fmt.Fprintf(stdin, "set term dumb\n")
 	/*
-	// Crappy attempt at highlighting anomalous area.
-	//circle := window1[maxi] + math.Abs(window1[maxi] - window2[maxi])
-	//fmt.Printf("window1: %.2f, window2: %.2f, mid: %.2f\n", window1[maxi], window2[maxi], circle)
-	//fmt.Fprintf(stdin, "set object circle at %d, %.2f size 0.5 fc rgb 'gray'\n", maxi, circle)
+		// Crappy attempt at highlighting anomalous area.
+		//circle := window1[maxi] + math.Abs(window1[maxi] - window2[maxi])
+		//fmt.Printf("window1: %.2f, window2: %.2f, mid: %.2f\n", window1[maxi], window2[maxi], circle)
+		//fmt.Fprintf(stdin, "set object circle at %d, %.2f size 0.5 fc rgb 'gray'\n", maxi, circle)
 	*/
 	fmt.Fprintf(stdin, "plot '-' using 2 title '' with lines, '-' using 2 title '' with lines\n")
 	for i, _ := range window1 {
@@ -91,4 +91,3 @@ func Plot(window1 []float64, window2 []float64, max float64, maxi int) {
 	}
 	fmt.Println(string(output))
 }
-

@@ -1,24 +1,26 @@
 package coco
 
 import (
-	"testing"
-	collectd "github.com/kimor79/gollectd"
-	"github.com/bulletproofnetworks/marksman/coco/coco"
-	"strings"
-	"time"
-	"net/http"
-	"io/ioutil"
 	"encoding/json"
+	"github.com/bulletproofnetworks/marksman/coco/coco"
+	collectd "github.com/kimor79/gollectd"
+	"io/ioutil"
 	"net"
+	"net/http"
+	"strings"
+	"testing"
+	"time"
 )
 
 // poll repeatedly checks if a port is open, exits when it is, fails tests when it doesn't
 func poll(t *testing.T, address string) {
 	iterations := 1000
-	for i := 0 ; i < iterations ; i++ {
+	for i := 0; i < iterations; i++ {
 		_, err := net.Dial("tcp", address)
 		t.Logf("Dial %s attempt %d", address, i)
-		if err == nil { break }
+		if err == nil {
+			break
+		}
 		if i == (iterations - 1) {
 			t.Fatalf("Couldn't establish connection to %s", address)
 		}
@@ -43,26 +45,26 @@ func TestFilterBlacklistsSamples(t *testing.T) {
 	count := 0
 	go func() {
 		for {
-			<- filtered
+			<-filtered
 			count += 1
 		}
 	}()
 
 	// Test
 	types := []string{"free", "used", "shared", "cached"}
-	for _, name := range(types) {
+	for _, name := range types {
 		raw <- collectd.Packet{
-			Hostname: "foo",
-			Plugin: "memory",
-			Type: "memory",
+			Hostname:     "foo",
+			Plugin:       "memory",
+			Type:         "memory",
 			TypeInstance: name,
 		}
 	}
-	for i := 0 ; i < 10 ; i++ {
+	for i := 0; i < 10; i++ {
 		raw <- collectd.Packet{
-			Hostname: "foo",
-			Plugin: "irq",
-			Type: "irq",
+			Hostname:     "foo",
+			Plugin:       "irq",
+			Type:         "irq",
 			TypeInstance: "7",
 		}
 	}
@@ -75,9 +77,9 @@ func TestFilterBlacklistsSamples(t *testing.T) {
 // Test that we can generate a metric name
 func TestGenerateMetricName(t *testing.T) {
 	packet := collectd.Packet{
-		Hostname: "foo",
-		Plugin: "irq",
-		Type: "irq",
+		Hostname:     "foo",
+		Plugin:       "irq",
+		Type:         "irq",
 		TypeInstance: "7",
 	}
 	name := coco.MetricName(packet)
@@ -89,8 +91,8 @@ func TestGenerateMetricName(t *testing.T) {
 
 	packet = collectd.Packet{
 		Hostname: "foo",
-		Plugin: "load",
-		Type: "load",
+		Plugin:   "load",
+		Type:     "load",
 	}
 	name = coco.MetricName(packet)
 	expected = 2
@@ -108,7 +110,7 @@ Send
 func TestSend(t *testing.T) {
 	// Setup listener
 	listenConfig := coco.ListenConfig{
-		Bind:	"127.0.0.1:25887",
+		Bind:    "127.0.0.1:25887",
 		Typesdb: "../types.db",
 	}
 	samples := make(chan collectd.Packet)
@@ -117,17 +119,17 @@ func TestSend(t *testing.T) {
 	var receive collectd.Packet
 	done := make(chan bool)
 	go func() {
-		receive = <- samples
+		receive = <-samples
 		// https://ariejan.net/2014/08/29/synchronize-goroutines-in-your-tests/
 		done <- true
 	}()
 
 	// Setup sender
 	tierConfig := make(map[string]coco.TierConfig)
-	tierConfig["a"] = coco.TierConfig{ Targets: []string{listenConfig.Bind} }
+	tierConfig["a"] = coco.TierConfig{Targets: []string{listenConfig.Bind}}
 
 	var tiers []coco.Tier
-	for k, v := range(tierConfig) {
+	for k, v := range tierConfig {
 		tier := coco.Tier{Name: k, Targets: v.Targets}
 		tiers = append(tiers, tier)
 	}
@@ -140,12 +142,12 @@ func TestSend(t *testing.T) {
 	// Test dispatch
 	send := collectd.Packet{
 		Hostname: "foo",
-		Plugin: "load",
-		Type: "load",
+		Plugin:   "load",
+		Type:     "load",
 	}
 
 	filtered <- send
-	<- done
+	<-done
 
 	if send.Hostname != receive.Hostname {
 		t.Errorf("Expected %s got %s", send.Hostname, receive.Hostname)
@@ -161,7 +163,7 @@ func TestSend(t *testing.T) {
 func TestSendTiers(t *testing.T) {
 	// Setup listen
 	listenConfig := coco.ListenConfig{
-		Bind:	"127.0.0.1:25888",
+		Bind:    "127.0.0.1:25888",
 		Typesdb: "../types.db",
 	}
 	raw := make(chan collectd.Packet)
@@ -170,19 +172,19 @@ func TestSendTiers(t *testing.T) {
 	count := 0
 	go func() {
 		for {
-			<- raw
+			<-raw
 			count += 1
 		}
 	}()
 
 	// Setup sender
 	tierConfig := make(map[string]coco.TierConfig)
-	tierConfig["a"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25888"} }
-	tierConfig["b"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25888"} }
-	tierConfig["c"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25888"} }
+	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:25888"}}
+	tierConfig["b"] = coco.TierConfig{Targets: []string{"127.0.0.1:25888"}}
+	tierConfig["c"] = coco.TierConfig{Targets: []string{"127.0.0.1:25888"}}
 
 	var tiers []coco.Tier
-	for k, v := range(tierConfig) {
+	for k, v := range tierConfig {
 		tier := coco.Tier{Name: k, Targets: v.Targets}
 		tiers = append(tiers, tier)
 	}
@@ -194,8 +196,8 @@ func TestSendTiers(t *testing.T) {
 	// Test dispatch
 	send := collectd.Packet{
 		Hostname: "foo",
-		Plugin: "load",
-		Type: "load",
+		Plugin:   "load",
+		Type:     "load",
 	}
 
 	filtered <- send
@@ -210,12 +212,12 @@ func TestSendTiers(t *testing.T) {
 func TestTierLookup(t *testing.T) {
 	// Setup sender
 	tierConfig := make(map[string]coco.TierConfig)
-	tierConfig["a"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25887"} }
-	tierConfig["b"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25888"} }
-	tierConfig["c"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25889"} }
+	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:25887"}}
+	tierConfig["b"] = coco.TierConfig{Targets: []string{"127.0.0.1:25888"}}
+	tierConfig["c"] = coco.TierConfig{Targets: []string{"127.0.0.1:25889"}}
 
 	var tiers []coco.Tier
-	for k, v := range(tierConfig) {
+	for k, v := range tierConfig {
 		tier := coco.Tier{Name: k, Targets: v.Targets}
 		tiers = append(tiers, tier)
 	}
@@ -245,23 +247,22 @@ func TestTierLookup(t *testing.T) {
 		t.Fatalf("Error when decoding JSON %+v. Response body: %s", err, string(body))
 	}
 
-	for k, v := range(tierConfig) {
+	for k, v := range tierConfig {
 		if result[k] != v.Targets[0] {
 			t.Errorf("Couldn't find tier %s in response: %s", k, string(body))
 		}
 	}
 }
 
-
 func TestExpvars(t *testing.T) {
 	// Setup API
 	tierConfig := make(map[string]coco.TierConfig)
-	tierConfig["a"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25887"} }
+	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:25887"}}
 
 	// FIXME(lindsay): Refactor this into Tiers() function
 	// tiers := tierConfig.Tiers()
 	var tiers []coco.Tier
-	for k, v := range(tierConfig) {
+	for k, v := range tierConfig {
 		tier := coco.Tier{Name: k, Targets: v.Targets}
 		tiers = append(tiers, tier)
 	}
