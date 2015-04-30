@@ -19,6 +19,9 @@ import (
 
 // Listen for collectd network packets, parse , and send them over a channel
 func Listen(config ListenConfig, c chan collectd.Packet) {
+	// Initialise the error counts
+	errorCounts.Add("fetch.receive", 0)
+
 	laddr, err := net.ResolveUDPAddr("udp", config.Bind)
 	if err != nil {
 		log.Fatalln("fatal: failed to resolve address", err)
@@ -76,6 +79,9 @@ func MetricName(packet collectd.Packet) (string) {
 }
 
 func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collectd.Packet, servers map[string]map[string]int64) {
+	// Initialise the error counts
+	errorCounts.Add("filter.unhandled", 0)
+
 	// Track unhandled errors
 	defer func() {
 		if r := recover() ; r != nil {
@@ -100,6 +106,10 @@ func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collect
 }
 
 func Send(tiers *[]Tier, filtered chan collectd.Packet, servers map[string]map[string]int64) {
+	// Initialise the error counts
+	errorCounts.Add("send.dial", 0)
+	errorCounts.Add("send.write", 0)
+
 	connections := make(map[string]net.Conn)
 
 	for i, tier := range *tiers {
@@ -278,6 +288,9 @@ func Encode(packet collectd.Packet) ([]byte) {
 }
 
 func TierLookup(params martini.Params, req *http.Request, tiers *[]Tier) []byte {
+	// Initialise the error counts
+	errorCounts.Add("lookup.hash.get", 0)
+
 	qs := req.URL.Query()
 	if len(qs["name"]) > 0 {
 		name := qs["name"][0]

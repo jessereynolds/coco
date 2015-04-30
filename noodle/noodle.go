@@ -28,6 +28,11 @@ func errorJSON(err error) []byte {
 }
 
 func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
+	// Initialise the error counts
+	errorCounts.Add("fetch.con.get", 0)
+	errorCounts.Add("fetch.http.get", 0)
+	errorCounts.Add("fetch.ioutil.readall", 0)
+
 	if len(fetch.Bind) == 0 {
 		log.Fatal("fatal: No address configured to bind web server.")
 	}
