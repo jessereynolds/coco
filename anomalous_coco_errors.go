@@ -1,10 +1,10 @@
 /*
-anomalous_coco_send checks if Coco's send behaviour has changed over a time period.
+anomalous_coco_errors checks if Coco's error rate has changed over a time period.
 
-This check is useful for determining if there has been an increase or decrease
-in packets being sent by Coco to a storage node.
+This check is useful for quickly identifying if a change to Coco configuration
+has caused the rate of errors to increase or decrease.
 
-anomalous_coco_send uses the Kolmogorov-Smirnov Test to determine if data in a
+anomalous_coco_errors uses the Kolmogorov-Smirnov Test to determine if data in a
 window is anomalous. You can read more about how the KS test works here:
 
   http://www.physics.csbsju.edu/stats/KS-test.html
@@ -13,9 +13,9 @@ At a high level, the test works like this:
 
  - Query Visage to get a window of data.
  - Bisect the window into two equal length windows.
- - Sort the data points in each window in ascending order.
+ - Sort the data points in each window in ascending numerical order of the value.
  - Find the D-statistic - the maximum vertical deviation between the two series.
- - Test if the D-statistic is greater than the user specified error rate.
+ - Test if the D-statistic is greater than the user specified acceptable deviation.
 
 Example usage:
 
