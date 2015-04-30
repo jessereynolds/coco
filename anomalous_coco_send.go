@@ -20,7 +20,7 @@ At a high level, the test works like this:
 Example usage:
 
   anomalous_coco_send --host ip-10-101-103-42.ap-southeast-2.compute.internal \
-					  --rrd 10.101.103.119
+					  --target 10.101.103.119
 					  --endpoint ***REMOVED***
 					  --window 5m
 
@@ -55,7 +55,7 @@ func handleErrors() {
 
 var (
 	host      = kingpin.Flag("host", "The host to query metrics from").Required().String()
-	rrd       = kingpin.Flag("rrd", "The storage node to test").Required().String()
+	target    = kingpin.Flag("target", "The storage node to test").Required().String()
 	endpoint  = kingpin.Flag("endpoint", "Visage endpoint to query").Required().String()
 	deviation = kingpin.Flag("maximum-deviation", "Acceptable deviation for KS test").Default("10.0").Float()
 	window    = kingpin.Flag("window", "Window of time to analyse").Default("120s").Duration()
@@ -68,7 +68,7 @@ func main() {
 
 	if *debug {
 		fmt.Println("Host:", *host)
-		fmt.Println("RRD:", *rrd)
+		fmt.Println("Target:", *target)
 		fmt.Println("Endpoint:", *endpoint)
 		fmt.Printf("Maximum deviation: %.1f\n", *deviation)
 		fmt.Println("Window:", *window)
@@ -82,8 +82,8 @@ func main() {
 	params := visage.Params{
 		Endpoint: *endpoint,
 		Host:     *host,
-		Plugin:   "curl_json-coco",
-		Instance: "operations-send-" + *rrd + ":25826",
+		Plugin:   "curl_json-coco_" + *host,
+		Instance: "operations-send-" + *target + ":25826",
 		Ds:       "value",
 		Window:   *window,
 		Debug:    *debug,
