@@ -13,9 +13,9 @@ At a high level, the test works like this:
 
  - Query Visage to get a window of data.
  - Bisect the window into two equal length windows.
- - Sort the data points in each window in ascending order.
+ - Sort the data points in each window in ascending numerical order of the value.
  - Find the D-statistic - the maximum vertical deviation between the two series.
- - Test if the D-statistic is greater than the user specified error rate.
+ - Test if the D-statistic is greater than the user specified acceptable deviation.
 
 Example usage:
 
