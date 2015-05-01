@@ -17,6 +17,22 @@ import (
 	"time"
 )
 
+func Measure(chans map[string]chan collectd.Packet) {
+	tick := time.NewTicker(10 * time.Second).C
+	for n, _ := range chans {
+		log.Println("info: measure: measuring queue", n)
+		queueCounts.Set(n, &expvar.Int{})
+	}
+	for {
+		select {
+		case <-tick:
+			for n, c := range chans {
+				queueCounts.Get(n).(*expvar.Int).Set(int64(len(c)))
+			}
+		}
+	}
+}
+
 // Listen for collectd network packets, parse , and send them over a channel
 func Listen(config ListenConfig, c chan collectd.Packet) {
 	// Initialise the error counts
@@ -434,5 +450,6 @@ var (
 	sendCounts   = expvar.NewMap("coco.send")
 	hashCounts   = expvar.NewMap("coco.hash")
 	lookupCounts = expvar.NewMap("coco.lookup")
+	queueCounts  = expvar.NewMap("coco.queues")
 	errorCounts  = expvar.NewMap("coco.errors")
 )

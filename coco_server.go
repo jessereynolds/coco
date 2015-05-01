@@ -37,6 +37,12 @@ func main() {
 		log.Fatal("No tiers configured. Exiting.")
 	}
 
+	chans := map[string]chan collectd.Packet{
+		"raw":      raw,
+		"filtered": filtered,
+	}
+	go coco.Measure(chans)
+
 	// Launch components to do the work
 	go coco.Listen(config.Listen, raw)
 	go coco.Filter(config.Filter, raw, filtered, servers)
