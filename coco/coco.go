@@ -18,7 +18,7 @@ import (
 )
 
 func Measure(config MeasureConfig, chans map[string]chan collectd.Packet) {
-	tick := time.NewTicker(config.Interval.Duration).C
+	tick := time.NewTicker(config.Interval()).C
 	for n, _ := range chans {
 		log.Println("info: measure: measuring queue", n)
 		queueCounts.Set(n, &expvar.Int{})
@@ -422,15 +422,33 @@ type ApiConfig struct {
 }
 
 type FetchConfig struct {
-	Bind    string
-	Timeout Duration `toml:"proxy_timeout"`
+	Bind         string
+	ProxyTimeout Duration `toml:"proxy_timeout"`
 	// FIXME(lindsay): RemotePort is a bit of a code smell.
 	// Ideally every target could define its own port for collectd + Visage.
 	RemotePort string `toml:"remote_port"`
 }
 
+// Helper function to provide a default timeout value
+func (f *FetchConfig) Timeout() time.Duration {
+	if f.ProxyTimeout.Duration == 0 {
+		return 3 * time.Second
+	} else {
+		return f.ProxyTimeout.Duration
+	}
+}
+
 type MeasureConfig struct {
-	Interval Duration
+	TickInterval Duration `toml:"interval"`
+}
+
+// Helper function to provide a default interval value
+func (m *MeasureConfig) Interval() time.Duration {
+	if m.TickInterval.Duration == 0 {
+		return 10 * time.Second
+	} else {
+		return m.TickInterval.Duration
+	}
 }
 
 type Duration struct {

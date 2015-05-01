@@ -67,7 +67,7 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 			}
 			fmt.Println("host", host)
 			url := "http://" + host + req.RequestURI
-			client := &http.Client{Timeout: fetch.Timeout.Duration}
+			client := &http.Client{Timeout: fetch.Timeout()}
 			resp, err := client.Get(url)
 			if err != nil {
 				defer func() {
