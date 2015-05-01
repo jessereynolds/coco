@@ -24,8 +24,8 @@ func main() {
 
 	// Setup data structures to be shared across components
 	servers := map[string]map[string]int64{}
-	raw := make(chan collectd.Packet)
-	filtered := make(chan collectd.Packet)
+	raw := make(chan collectd.Packet, 100000)
+	filtered := make(chan collectd.Packet, 100000)
 
 	var tiers []coco.Tier
 	for k, v := range config.Tiers {
@@ -41,7 +41,7 @@ func main() {
 		"raw":      raw,
 		"filtered": filtered,
 	}
-	go coco.Measure(chans)
+	go coco.Measure(10*time.Second, chans)
 
 	// Launch components to do the work
 	go coco.Listen(config.Listen, raw)

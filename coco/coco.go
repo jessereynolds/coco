@@ -17,8 +17,8 @@ import (
 	"time"
 )
 
-func Measure(chans map[string]chan collectd.Packet) {
-	tick := time.NewTicker(10 * time.Second).C
+func Measure(interval time.Duration, chans map[string]chan collectd.Packet) {
+	tick := time.NewTicker(interval).C
 	for n, _ := range chans {
 		log.Println("info: measure: measuring queue", n)
 		queueCounts.Set(n, &expvar.Int{})
