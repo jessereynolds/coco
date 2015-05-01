@@ -64,9 +64,10 @@ func TestFetch(t *testing.T) {
 	// Setup Fetch
 	fetchConfig := coco.FetchConfig{
 		Bind:       "127.0.0.1:26082",
-		Timeout:    *new(coco.Duration), //.UnmarshalText([]byte("1s")),
+		Timeout:    *new(coco.Duration),
 		RemotePort: "29292",
 	}
+	fetchConfig.Timeout.UnmarshalText([]byte("3s"))
 
 	tierConfig := make(map[string]coco.TierConfig)
 	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:25887"}}
