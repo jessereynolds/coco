@@ -45,7 +45,9 @@ func main() {
 
 	// Launch components to do the work
 	go coco.Listen(config.Listen, raw)
-	go coco.Filter(config.Filter, raw, filtered, servers)
+	for i := 0; i < 4; i++ {
+		go coco.Filter(config.Filter, raw, filtered, servers)
+	}
 	go coco.Send(&tiers, filtered, servers)
 	coco.Api(config.Api, &tiers, servers)
 }
