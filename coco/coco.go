@@ -17,8 +17,8 @@ import (
 	"time"
 )
 
-func Measure(interval time.Duration, chans map[string]chan collectd.Packet) {
-	tick := time.NewTicker(interval).C
+func Measure(config MeasureConfig, chans map[string]chan collectd.Packet) {
+	tick := time.NewTicker(config.Interval.Duration).C
 	for n, _ := range chans {
 		log.Println("info: measure: measuring queue", n)
 		queueCounts.Set(n, &expvar.Int{})
@@ -396,11 +396,12 @@ func Api(config ApiConfig, tiers *[]Tier, servers map[string]map[string]int64) {
 }
 
 type Config struct {
-	Listen ListenConfig
-	Filter FilterConfig
-	Tiers  map[string]TierConfig
-	Api    ApiConfig
-	Fetch  FetchConfig
+	Listen  ListenConfig
+	Filter  FilterConfig
+	Tiers   map[string]TierConfig
+	Api     ApiConfig
+	Fetch   FetchConfig
+	Measure MeasureConfig
 }
 
 type ListenConfig struct {
@@ -426,6 +427,10 @@ type FetchConfig struct {
 	// FIXME(lindsay): RemotePort is a bit of a code smell.
 	// Ideally every target could define its own port for collectd + Visage.
 	RemotePort string `toml:"remote_port"`
+}
+
+type MeasureConfig struct {
+	Interval Duration
 }
 
 type Duration struct {

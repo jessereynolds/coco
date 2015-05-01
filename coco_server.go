@@ -41,7 +41,7 @@ func main() {
 		"raw":      raw,
 		"filtered": filtered,
 	}
-	go coco.Measure(10*time.Second, chans)
+	go coco.Measure(config.Measure, chans)
 
 	// Launch components to do the work
 	go coco.Listen(config.Listen, raw)

@@ -296,3 +296,60 @@ func TestExpvars(t *testing.T) {
 		t.FailNow()
 	}
 }
+
+func TestMeasure(t *testing.T) {
+	// Setup Listen
+	apiConfig := coco.ApiConfig{
+		Bind: "127.0.0.1:26081",
+	}
+	var tiers []coco.Tier
+	servers := map[string]map[string]int64{}
+	go coco.Api(apiConfig, &tiers, servers)
+
+	poll(t, apiConfig.Bind)
+
+	// Setup Measure
+	chans := map[string]chan collectd.Packet{
+		"a": make(chan collectd.Packet, 1000),
+		"b": make(chan collectd.Packet, 1000),
+		"c": make(chan collectd.Packet, 1000),
+	}
+	measureConfig := coco.MeasureConfig{
+		Interval: *new(coco.Duration),
+	}
+	measureConfig.Interval.UnmarshalText([]byte("1ms"))
+	go coco.Measure(measureConfig, chans)
+
+	// Test pushing packets
+	for _, c := range chans {
+		for i := 0; i < 950; i++ {
+			c <- collectd.Packet{}
+		}
+	}
+
+	time.Sleep(10 * time.Millisecond)
+
+	// Test
+	resp, err := http.Get("http://127.0.0.1:26081/debug/vars")
+	if err != nil {
+		t.Fatalf("HTTP GET failed: %s", err)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	var result map[string]interface{}
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		t.Errorf("Error when decoding JSON %+v.", err)
+		t.Errorf("Response body: %s", string(body))
+		t.FailNow()
+	}
+
+	counts := result["coco"].(map[string]interface{})["queues"].(map[string]interface{})
+	expected := 950
+	for k, v := range counts {
+		c := int(v.(float64))
+		if c != expected {
+			t.Errorf("Expected %s to equal %d, got %d", k, expected, v)
+		}
+	}
+}
