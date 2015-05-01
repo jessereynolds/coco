@@ -63,11 +63,11 @@ func TestFetch(t *testing.T) {
 
 	// Setup Fetch
 	fetchConfig := coco.FetchConfig{
-		Bind:       "127.0.0.1:26082",
-		Timeout:    *new(coco.Duration),
-		RemotePort: "29292",
+		Bind:         "127.0.0.1:26082",
+		ProxyTimeout: *new(coco.Duration),
+		RemotePort:   "29292",
 	}
-	fetchConfig.Timeout.UnmarshalText([]byte("3s"))
+	fetchConfig.ProxyTimeout.UnmarshalText([]byte("3s"))
 
 	tierConfig := make(map[string]coco.TierConfig)
 	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:25887"}}
@@ -112,10 +112,11 @@ func TestFetchWithFailure(t *testing.T) {
 
 	// Setup Fetch
 	fetchConfig := coco.FetchConfig{
-		Bind:       "127.0.0.1:26083",
-		Timeout:    *new(coco.Duration), //.UnmarshalText([]byte("1s")),
-		RemotePort: "29293",
+		Bind:         "127.0.0.1:26083",
+		ProxyTimeout: *new(coco.Duration),
+		RemotePort:   "29293",
 	}
+	fetchConfig.ProxyTimeout.UnmarshalText([]byte("3s"))
 
 	tierConfig := make(map[string]coco.TierConfig)
 	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:25887"}}
@@ -152,9 +153,10 @@ func TestFetchWithFailure(t *testing.T) {
 func TestTierLookup(t *testing.T) {
 	// Setup Fetch
 	fetchConfig := coco.FetchConfig{
-		Bind:    "127.0.0.1:26080",
-		Timeout: *new(coco.Duration), //.UnmarshalText([]byte("1s")),
+		Bind:         "127.0.0.1:26080",
+		ProxyTimeout: *new(coco.Duration),
 	}
+	fetchConfig.ProxyTimeout.UnmarshalText([]byte("3s"))
 
 	tierConfig := make(map[string]coco.TierConfig)
 	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:25887"}}
@@ -195,9 +197,10 @@ func TestTierLookup(t *testing.T) {
 func TestExpvars(t *testing.T) {
 	// Setup Fetch
 	fetchConfig := coco.FetchConfig{
-		Bind:    "127.0.0.1:26081",
-		Timeout: *new(coco.Duration), //.UnmarshalText([]byte("1s")),
+		Bind:         "127.0.0.1:26081",
+		ProxyTimeout: *new(coco.Duration),
 	}
+	fetchConfig.ProxyTimeout.UnmarshalText([]byte("3s"))
 
 	tierConfig := make(map[string]coco.TierConfig)
 	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:25887"}}

@@ -315,9 +315,9 @@ func TestMeasure(t *testing.T) {
 		"c": make(chan collectd.Packet, 1000),
 	}
 	measureConfig := coco.MeasureConfig{
-		Interval: *new(coco.Duration),
+		TickInterval: *new(coco.Duration),
 	}
-	measureConfig.Interval.UnmarshalText([]byte("1ms"))
+	measureConfig.TickInterval.UnmarshalText([]byte("1ms"))
 	go coco.Measure(measureConfig, chans)
 
 	// Test pushing packets
