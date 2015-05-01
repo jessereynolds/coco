@@ -379,8 +379,8 @@ func Api(config ApiConfig, tiers *[]Tier, servers map[string]map[string]int64) {
 	m.Get("/lookup", func(params martini.Params, req *http.Request) []byte {
 		return TierLookup(params, req, tiers)
 	})
-	// Dump out the list of servers Coco is tracking
-	m.Group("/servers", func(r martini.Router) {
+	// Dump out the list of targets Coco is hashing metrics to
+	m.Group("/targets", func(r martini.Router) {
 		r.Get("", func() []byte {
 			data, _ := json.Marshal(servers)
 			return data
