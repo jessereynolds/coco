@@ -24,8 +24,8 @@ func main() {
 
 	// Setup data structures to be shared across components
 	servers := map[string]map[string]int64{}
-	raw := make(chan collectd.Packet, 100000)
-	filtered := make(chan collectd.Packet, 100000)
+	raw := make(chan collectd.Packet, 1000000)
+	filtered := make(chan collectd.Packet, 1000000)
 
 	var tiers []coco.Tier
 	for k, v := range config.Tiers {
