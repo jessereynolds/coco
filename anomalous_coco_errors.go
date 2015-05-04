@@ -109,6 +109,7 @@ func main() {
 		fmt.Println(window2)
 		fmt.Println("Max, max index:")
 		fmt.Println(max, maxIndex)
+		fmt.Printf("Window sizes: window 1: %d, window 2: %d\n", len(window1), len(window2))
 	}
 
 	// Plot the data on the console
