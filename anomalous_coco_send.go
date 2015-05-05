@@ -82,7 +82,7 @@ func main() {
 	params := visage.Params{
 		Endpoint: *endpoint,
 		Host:     *host,
-		Plugin:   "curl_json-coco_" + *host,
+		Plugin:   "curl_json-coco",
 		Instance: "operations-send-" + *target + ":25826",
 		Ds:       "value",
 		Window:   *window,
