@@ -17,10 +17,10 @@ func buildMapping(mapping map[string][]string, iterations int, con *consistent.C
 
 func TestRehashingWithManyReplicas(t *testing.T) {
 	objectsSize := 1000000
-	sites := []int{8, 20}
-	maxReplicas := 1000
+	maxSites := 50
+	maxReplicas := 100
 
-	for _, sites := range sites {
+	for s := 2; s <= maxSites; s++ {
 		for i := 1; i <= maxReplicas; i++ {
 			// Initialize the mappings and consistent hasher
 			mapping := make(map[string][]string, objectsSize)
@@ -28,7 +28,7 @@ func TestRehashingWithManyReplicas(t *testing.T) {
 			con.NumberOfReplicas = i
 
 			// Add members to the circle
-			for i := 0; i < sites; i++ {
+			for i := 0; i < s; i++ {
 				con.Add(strconv.Itoa(i))
 			}
 
@@ -45,7 +45,7 @@ func TestRehashingWithManyReplicas(t *testing.T) {
 			variance := max / min
 
 			// Print results
-			t.Logf("{\"sites\":%d,\"replicas\":%d,\"variance\":%.4f}\n", sites, con.NumberOfReplicas, variance)
+			t.Logf("{\"sites\":%d,\"replicas\":%d,\"variance\":%.4f}\n", s, con.NumberOfReplicas, variance)
 		}
 	}
 }
