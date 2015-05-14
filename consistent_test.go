@@ -2,28 +2,34 @@ package main
 
 import (
 	consistent "github.com/stathat/consistent"
+	"io/ioutil"
 	"sort"
 	"strconv"
+	"strings"
 	"testing"
 )
 
-func buildMapping(mapping map[string][]string, iterations int, con *consistent.Consistent) {
-	for i := 0; i < iterations; i++ {
-		k := string(i)
-		site, _ := con.Get(k)
-		mapping[site] = append(mapping[site], k)
+func buildMapping(mapping map[string][]string, hosts []string, con *consistent.Consistent) {
+	for _, host := range hosts {
+		site, _ := con.Get(host)
+		mapping[site] = append(mapping[site], host)
 	}
 }
 
 func TestRehashingWithManyReplicas(t *testing.T) {
-	objectsSize := 1000000
+	lines, err := ioutil.ReadFile("hosts.txt")
+	if err != nil {
+		t.Fatalf("Couldn't read test data: %s", err)
+	}
+	hosts := strings.Split(string(lines), "\n")
+
 	maxSites := 50
 	maxReplicas := 100
 
 	for s := 2; s <= maxSites; s++ {
 		for i := 1; i <= maxReplicas; i++ {
 			// Initialize the mappings and consistent hasher
-			mapping := make(map[string][]string, objectsSize)
+			mapping := make(map[string][]string, len(hosts))
 			con := consistent.New()
 			con.NumberOfReplicas = i
 
@@ -33,7 +39,7 @@ func TestRehashingWithManyReplicas(t *testing.T) {
 			}
 
 			// Build before mapping
-			buildMapping(mapping, objectsSize, con)
+			buildMapping(mapping, hosts, con)
 
 			var data []int
 			for _, objects := range mapping {
