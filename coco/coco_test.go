@@ -351,3 +351,58 @@ func TestMeasure(t *testing.T) {
 		}
 	}
 }
+
+func TestVariance(t *testing.T) {
+	// Setup sender
+	tierConfig := make(map[string]coco.TierConfig)
+	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:25881", "127.0.0.1:25882", "127.0.0.1:25883", "127.0.0.1:25884", "127.0.0.1:25885", "127.0.0.1:25886", "127.0.0.1:25887", "127.0.0.1:25888"}}
+
+	var tiers []coco.Tier
+	for k, v := range tierConfig {
+		tier := coco.Tier{Name: k, Targets: v.Targets}
+		tiers = append(tiers, tier)
+	}
+
+	filtered := make(chan collectd.Packet)
+	servers := map[string]map[string]int64{}
+	go coco.Send(&tiers, filtered, servers)
+
+	// Test dispatch
+	for i := 0; i < 100000; i++ {
+		send := collectd.Packet{
+			Hostname: "foo" + string(i),
+			Plugin:   "load",
+			Type:     "load",
+		}
+		filtered <- send
+	}
+
+	// Breathe a moment so packet works its way through
+	for {
+		time.Sleep(10 * time.Millisecond)
+		if len(filtered) == 0 {
+			break
+		}
+	}
+
+	var min float64
+	var max float64
+	for _, v := range servers {
+		size := float64(len(v))
+		if min == 0 || size < min {
+			min = size
+		}
+		if size > max {
+			max = size
+		}
+	}
+
+	variance := max / min
+	maxVariance := 1.2
+	t.Logf("Min: %.2f\n", min)
+	t.Logf("Max: %.2f\n", max)
+	t.Logf("Variance: %.4f\n", variance)
+	if variance > maxVariance {
+		t.Fatalf("Variance was %.4f, expected < %.4f", variance, maxVariance)
+	}
+}
