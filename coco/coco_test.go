@@ -259,8 +259,6 @@ func TestExpvars(t *testing.T) {
 	tierConfig := make(map[string]coco.TierConfig)
 	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:25887"}}
 
-	// FIXME(lindsay): Refactor this into Tiers() function
-	// tiers := tierConfig.Tiers()
 	var tiers []coco.Tier
 	for k, v := range tierConfig {
 		tier := coco.Tier{Name: k, Targets: v.Targets}
