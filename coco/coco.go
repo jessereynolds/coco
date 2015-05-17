@@ -130,8 +130,9 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, servers map[string]map[s
 
 	for i, tier := range *tiers {
 		(*tiers)[i].Hash = consistent.New()
+		(*tiers)[i].Shadows = make(map[string]string)
 
-		for _, t := range tier.Targets {
+		for it, t := range tier.Targets {
 			conn, err := net.Dial("udp", t)
 			if err != nil {
 				log.Printf("error: send: %s: %+v", t, err)
@@ -145,7 +146,9 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, servers map[string]map[s
 				}
 				servers[t] = make(map[string]int64)
 				connections[t] = conn
-				(*tiers)[i].Hash.Add(t)
+				shadow_t := string(it)
+				(*tiers)[i].Shadows[shadow_t] = t
+				(*tiers)[i].Hash.Add(shadow_t)
 				hashCounts.Set(t, &expvar.Int{})
 			}
 		}
@@ -165,10 +168,12 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, servers map[string]map[s
 		packet := <-filtered
 		for _, tier := range *tiers {
 			// Get the target we should forward the packet to
-			target, err := tier.Hash.Get(packet.Hostname)
+			shadow_t, err := tier.Hash.Get(packet.Hostname)
 			if err != nil {
 				log.Fatal(err)
 			}
+			target := tier.Shadows[shadow_t]
+
 			// Update metadata
 			name := MetricName(packet)
 			servers[target][name] = time.Now().Unix()
@@ -313,18 +318,19 @@ func TierLookup(params martini.Params, req *http.Request, tiers *[]Tier) []byte 
 		result := map[string]string{}
 
 		for _, tier := range *tiers {
-			server, err := tier.Hash.Get(name)
+			shadow_t, err := tier.Hash.Get(name)
 			if err != nil {
 				defer func() {
 					errorCounts.Add("lookup.hash.get", 1)
 					log.Printf("error: api: %s: %+v\n", name, err)
 				}()
 			}
+			target := tier.Shadows[shadow_t]
 			// Track when we've successfully looked up a tier.
 			defer func() {
 				lookupCounts.Add(tier.Name, 1)
 			}()
-			result[tier.Name] = server
+			result[tier.Name] = target
 		}
 		json, _ := json.Marshal(result)
 		return json
@@ -465,6 +471,7 @@ type Tier struct {
 	Name    string
 	Targets []string
 	Hash    *consistent.Consistent
+	Shadows map[string]string
 }
 
 var (
