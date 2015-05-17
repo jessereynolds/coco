@@ -4,7 +4,6 @@ import (
 	consistent "github.com/stathat/consistent"
 	"io/ioutil"
 	"sort"
-	"strconv"
 	"strings"
 	"testing"
 )
@@ -16,7 +15,7 @@ func buildMapping(mapping map[string][]string, hosts []string, con *consistent.C
 	}
 }
 
-func TestRehashingWithManyReplicas(t *testing.T) {
+func TestVariancePermutations(t *testing.T) {
 	lines, err := ioutil.ReadFile("hosts.txt")
 	if err != nil {
 		t.Fatalf("Couldn't read test data: %s", err)
