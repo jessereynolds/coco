@@ -39,8 +39,11 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 
 	for i, tier := range *tiers {
 		(*tiers)[i].Hash = consistent.New()
-		for _, t := range tier.Targets {
-			(*tiers)[i].Hash.Add(t)
+		(*tiers)[i].Shadows = make(map[string]string)
+		for it, t := range tier.Targets {
+			shadow_t := string(it)
+			(*tiers)[i].Shadows[shadow_t] = t
+			(*tiers)[i].Hash.Add(shadow_t)
 		}
 	}
 
@@ -48,7 +51,7 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 	m.Get("/data/:hostname/(.+)", func(params martini.Params, req *http.Request) []byte {
 		for _, tier := range *tiers {
 			// Lookup the hostname in the tier's hash. Work out where we should proxy to.
-			site, err := tier.Hash.Get(params["hostname"])
+			shadow_t, err := tier.Hash.Get(params["hostname"])
 			if err != nil {
 				defer func() {
 					fmt.Printf("%+v\n", errorCounts)
@@ -56,14 +59,15 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 				}()
 				return errorJSON(err)
 			}
+			target := tier.Shadows[shadow_t]
 
 			// Construct the URL, and do the GET
 			var host string
 			if len(fetch.RemotePort) > 0 {
 				// FIXME(lindsay) look up fetch port per-target?
-				host = strings.Split(site, ":")[0] + ":" + fetch.RemotePort
+				host = strings.Split(target, ":")[0] + ":" + fetch.RemotePort
 			} else {
-				host = strings.Split(site, ":")[0]
+				host = strings.Split(target, ":")[0]
 			}
 			fmt.Println("host", host)
 			url := "http://" + host + req.RequestURI
@@ -89,7 +93,7 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 
 			// Track metrics for a successful proxy request
 			defer func() {
-				reqCounts.Add(site, 1) // the site in the hash we proxied to
+				reqCounts.Add(target, 1) // the target in the hash we proxied to
 				reqCounts.Add("total", 1)
 				respCounts.Add(strconv.Itoa(resp.StatusCode), 1)
 				bytesProxied.Add(resp.ContentLength)
