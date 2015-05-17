@@ -35,7 +35,9 @@ func TestRehashingWithManyReplicas(t *testing.T) {
 
 			// Add members to the circle
 			for i := 0; i < s; i++ {
-				con.Add(strconv.Itoa(i))
+				target := string(i)
+				//target := strconv.Itoa(i)
+				con.Add(target)
 			}
 
 			// Build before mapping
