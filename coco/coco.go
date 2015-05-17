@@ -157,7 +157,11 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, servers map[string]map[s
 	// Log how the hashes are set up
 	for _, tier := range *tiers {
 		hash := tier.Hash
-		log.Printf("info: send: tier %s hash ring has %d members: %s", tier.Name, len(hash.Members()), hash.Members())
+		var targets []string
+		for _, shadow_t := range hash.Members() {
+			targets = append(targets, tier.Shadows[shadow_t])
+		}
+		log.Printf("info: send: tier %s hash ring has %d members: %s", tier.Name, len(hash.Members()), targets)
 	}
 
 	if len(connections) == 0 {
