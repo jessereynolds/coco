@@ -127,6 +127,7 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, servers map[string]map[s
 	errorCounts.Add("send.write", 0)
 
 	connections := make(map[string]net.Conn)
+	hosts := map[string]map[string]int64{}
 
 	for i, tier := range *tiers {
 		(*tiers)[i].Hash = consistent.New()
@@ -145,11 +146,13 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, servers map[string]map[s
 					log.Printf("warning: send dutifully adding %s to hash anyway, but beware!", conn.RemoteAddr())
 				}
 				servers[t] = make(map[string]int64)
+				hosts[t] = make(map[string]int64)
 				connections[t] = conn
 				shadow_t := string(it)
 				(*tiers)[i].Shadows[shadow_t] = t
 				(*tiers)[i].Hash.Add(shadow_t)
-				hashCounts.Set(t, &expvar.Int{})
+				metricCounts.Set(t, &expvar.Int{})
+				hostCounts.Set(t, &expvar.Int{})
 			}
 		}
 	}
@@ -180,6 +183,7 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, servers map[string]map[s
 
 			// Update metadata
 			name := MetricName(packet)
+			hosts[target][packet.Hostname] = time.Now().Unix()
 			servers[target][name] = time.Now().Unix()
 
 			// Dispatch the metric
@@ -191,7 +195,8 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, servers map[string]map[s
 			}
 
 			// Update counters
-			hashCounts.Get(target).(*expvar.Int).Set(int64(len(servers[target])))
+			metricCounts.Get(target).(*expvar.Int).Set(int64(len(servers[target])))
+			hostCounts.Get(target).(*expvar.Int).Set(int64(len(hosts[target])))
 			sendCounts.Add(target, 1)
 			sendCounts.Add("total", 1)
 		}
@@ -482,7 +487,8 @@ var (
 	listenCounts = expvar.NewMap("coco.listen")
 	filterCounts = expvar.NewMap("coco.filter")
 	sendCounts   = expvar.NewMap("coco.send")
-	hashCounts   = expvar.NewMap("coco.hash")
+	metricCounts = expvar.NewMap("coco.hash.metrics")
+	hostCounts   = expvar.NewMap("coco.hash.hosts")
 	lookupCounts = expvar.NewMap("coco.lookup")
 	queueCounts  = expvar.NewMap("coco.queues")
 	errorCounts  = expvar.NewMap("coco.errors")
