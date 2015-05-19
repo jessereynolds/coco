@@ -75,26 +75,25 @@ func Listen(config ListenConfig, c chan collectd.Packet) {
 }
 
 func MetricName(packet collectd.Packet) string {
-	parts := []string{
-		packet.Hostname,
+	prts := []string{
 		packet.Plugin,
 		packet.PluginInstance,
 		packet.Type,
 		packet.TypeInstance,
 	}
 
-	var prts []string
+	var parts []string
 
-	for _, p := range parts {
+	for _, p := range prts {
 		if len(p) != 0 {
-			prts = append(prts, p)
+			parts = append(parts, p)
 		}
 	}
 
-	return strings.Join(prts, "/")
+	return strings.Join(parts, "/")
 }
 
-func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collectd.Packet, servers map[string]map[string]int64) {
+func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collectd.Packet, mapping map[string]map[string]map[string]int64) {
 	// Initialise the error counts
 	errorCounts.Add("filter.unhandled", 0)
 
@@ -105,29 +104,32 @@ func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collect
 		}
 	}()
 
-	servers["filtered"] = make(map[string]int64)
+	mapping["filtered"] = make(map[string]map[string]int64)
 	for {
 		packet := <-raw
 		name := MetricName(packet)
+		full := packet.Hostname + "/" + name
 
 		re := regexp.MustCompile(config.Blacklist)
-		if re.FindStringIndex(name) == nil {
+		if re.FindStringIndex(full) == nil {
 			filtered <- packet
 			filterCounts.Add("accepted", 1)
 		} else {
-			servers["filtered"][name] = time.Now().Unix()
+			if mapping["filtered"][packet.Hostname] == nil {
+				mapping["filtered"][packet.Hostname] = make(map[string]int64)
+			}
+			mapping["filtered"][packet.Hostname][name] = time.Now().Unix()
 			filterCounts.Add("rejected", 1)
 		}
 	}
 }
 
-func Send(tiers *[]Tier, filtered chan collectd.Packet, servers map[string]map[string]int64) {
+func Send(tiers *[]Tier, filtered chan collectd.Packet, mapping map[string]map[string]map[string]int64) {
 	// Initialise the error counts
 	errorCounts.Add("send.dial", 0)
 	errorCounts.Add("send.write", 0)
 
 	connections := make(map[string]net.Conn)
-	hosts := map[string]map[string]int64{}
 
 	for i, tier := range *tiers {
 		(*tiers)[i].Hash = consistent.New()
@@ -145,8 +147,7 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, servers map[string]map[s
 					log.Printf("warning: %s is local. You may be looping metrics back to coco!", conn.RemoteAddr())
 					log.Printf("warning: send dutifully adding %s to hash anyway, but beware!", conn.RemoteAddr())
 				}
-				servers[t] = make(map[string]int64)
-				hosts[t] = make(map[string]int64)
+				mapping[t] = make(map[string]map[string]int64)
 				connections[t] = conn
 				shadow_t := string(it)
 				(*tiers)[i].Shadows[shadow_t] = t
@@ -183,8 +184,10 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, servers map[string]map[s
 
 			// Update metadata
 			name := MetricName(packet)
-			hosts[target][packet.Hostname] = time.Now().Unix()
-			servers[target][name] = time.Now().Unix()
+			if mapping[target][packet.Hostname] == nil {
+				mapping[target][packet.Hostname] = make(map[string]int64)
+			}
+			mapping[target][packet.Hostname][name] = time.Now().Unix()
 
 			// Dispatch the metric
 			payload := Encode(packet)
@@ -195,8 +198,12 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, servers map[string]map[s
 			}
 
 			// Update counters
-			metricCounts.Get(target).(*expvar.Int).Set(int64(len(servers[target])))
-			hostCounts.Get(target).(*expvar.Int).Set(int64(len(hosts[target])))
+			hostCounts.Get(target).(*expvar.Int).Set(int64(len(mapping[target])))
+			mc := 0
+			for _, v := range mapping[target] {
+				mc += len(v)
+			}
+			metricCounts.Get(target).(*expvar.Int).Set(int64(mc))
 			sendCounts.Add(target, 1)
 			sendCounts.Add("total", 1)
 		}
@@ -388,7 +395,7 @@ func ExpvarHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "}\n")
 }
 
-func Api(config ApiConfig, tiers *[]Tier, servers map[string]map[string]int64) {
+func Api(config ApiConfig, tiers *[]Tier, mapping map[string]map[string]map[string]int64) {
 	m := martini.Classic()
 	// Endpoint for looking up what storage nodes own metrics for a host
 	m.Get("/lookup", func(params martini.Params, req *http.Request) []byte {
@@ -397,7 +404,7 @@ func Api(config ApiConfig, tiers *[]Tier, servers map[string]map[string]int64) {
 	// Dump out the list of targets Coco is hashing metrics to
 	m.Group("/targets", func(r martini.Router) {
 		r.Get("", func() []byte {
-			data, _ := json.Marshal(servers)
+			data, _ := json.Marshal(mapping)
 			return data
 		})
 	})
