@@ -225,43 +225,48 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, mapping map[string]map[s
 			sendCounts.Add(target, 1)
 			sendCounts.Add("total", 1)
 
-			// Update totals
-			var min int
-			var max int
-			var sum int
-			var length int
-			var n int
-			// Find min + max
-			for t, hosts := range mapping {
-				if t == "filtered" {
-					continue
+			defer func() {
+				// Update totals
+				var min int
+				var max int
+				var sum int
+				var length int
+				var n int
+				// Find min + max
+				for t, hosts := range mapping {
+					if t == "filtered" {
+						continue
+					}
+					sizes := []int{}
+					for _, metrics := range hosts {
+						sizes = append(sizes, len(metrics))
+						sum += len(metrics)
+					}
+					if len(sizes) == 0 {
+						continue
+					}
+					sort.Ints(sizes)
+					min = sizes[0]
+					max = sizes[len(sizes)-1]
+					length = len(sizes)
+					n = sizes[int(float64(length)*0.95)]
 				}
-				sizes := []int{}
-				for _, metrics := range hosts {
-					sizes = append(sizes, len(metrics))
-					sum += len(metrics)
-				}
-				sort.Ints(sizes)
-				min = sizes[0]
-				max = sizes[len(sizes)-1]
-				length = len(sizes)
-				n = sizes[int(float64(length)*0.95)]
-			}
-			// Build summary
-			ratioCountsMap := new(expvar.Map).Init()
-			mine := new(expvar.Int)
-			mine.Set(int64(min))
-			ratioCountsMap.Set("min", mine)
-			maxe := new(expvar.Int)
-			maxe.Set(int64(max))
-			ratioCountsMap.Set("max", maxe)
-			avge := new(expvar.Float)
-			avge.Set(float64(sum) / float64(length))
-			ratioCountsMap.Set("avg", avge)
-			ne := new(expvar.Int)
-			ne.Set(int64(n))
-			ratioCountsMap.Set("95e", ne)
-			ratioCounts.Set(tier.Name, ratioCountsMap)
+				// Build summary
+				ratioCountsMap := new(expvar.Map).Init()
+				mine := new(expvar.Int)
+				mine.Set(int64(min))
+				ratioCountsMap.Set("min", mine)
+				maxe := new(expvar.Int)
+				maxe.Set(int64(max))
+				ratioCountsMap.Set("max", maxe)
+				avge := new(expvar.Float)
+				avge.Set(float64(sum) / float64(length))
+				ratioCountsMap.Set("avg", avge)
+				ne := new(expvar.Int)
+				ne.Set(int64(n))
+				ratioCountsMap.Set("95e", ne)
+				ratioCounts.Set(tier.Name, ratioCountsMap)
+			}()
 		}
 	}
 }
