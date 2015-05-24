@@ -125,15 +125,32 @@ func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collect
 }
 
 func Send(tiers *[]Tier, filtered chan collectd.Packet, mapping map[string]map[string]map[string]int64) {
+	/*
+		ratioCounts.Set("tier1", new(expvar.Map).Init())
+		ratioCounts.Set("tier2", new(expvar.Map).Init())
+
+		ratioCountsMap := new(expvar.Map).Init()
+		i := new(expvar.Int)
+		i.Set(1)
+		ratioCountsMap.Set("min", i)
+		ratioCountsMap.Set("max", &expvar.Int{})
+		ratioCounts.Set("tier1", ratioCountsMap)
+	*/
+
+	//metricCounts.Get(target).(*expvar.Int).Set(int64(mc))
+
 	// Initialise the error counts
 	errorCounts.Add("send.dial", 0)
 	errorCounts.Add("send.write", 0)
 
+	// map that tracks all the UDP connections
 	connections := make(map[string]net.Conn)
 
 	for i, tier := range *tiers {
 		(*tiers)[i].Hash = consistent.New()
 		(*tiers)[i].Shadows = make(map[string]string)
+		// Populate ratio counters per tier
+		ratioCounts.Set(tier.Name, new(expvar.Map).Init())
 
 		for it, t := range tier.Targets {
 			conn, err := net.Dial("udp", t)
@@ -206,6 +223,36 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, mapping map[string]map[s
 			metricCounts.Get(target).(*expvar.Int).Set(int64(mc))
 			sendCounts.Add(target, 1)
 			sendCounts.Add("total", 1)
+
+			// Update totals
+			var min int
+			var max int
+			var sum int
+			for t, host := range mapping {
+				if t == "filtered" {
+					continue
+				}
+				for _, metrics := range host {
+					if min == 0 || len(metrics) < min {
+						min = len(metrics)
+					}
+					if len(metrics) > max {
+						max = len(metrics)
+					}
+					sum = sum + len(metrics)
+				}
+			}
+			ratioCountsMap := new(expvar.Map).Init()
+			mine := new(expvar.Int)
+			mine.Set(int64(min))
+			ratioCountsMap.Set("min", mine)
+			maxe := new(expvar.Int)
+			maxe.Set(int64(max))
+			ratioCountsMap.Set("max", maxe)
+			sume := new(expvar.Int)
+			sume.Set(int64(sum))
+			ratioCountsMap.Set("sum", sume)
+			ratioCounts.Set(tier.Name, ratioCountsMap)
 		}
 	}
 }
@@ -496,6 +543,7 @@ var (
 	sendCounts   = expvar.NewMap("coco.send")
 	metricCounts = expvar.NewMap("coco.hash.metrics")
 	hostCounts   = expvar.NewMap("coco.hash.hosts")
+	ratioCounts  = expvar.NewMap("coco.hash.ratios")
 	lookupCounts = expvar.NewMap("coco.lookup")
 	queueCounts  = expvar.NewMap("coco.queues")
 	errorCounts  = expvar.NewMap("coco.errors")
