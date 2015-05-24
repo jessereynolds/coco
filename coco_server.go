@@ -42,7 +42,7 @@ func main() {
 		"raw":      raw,
 		"filtered": filtered,
 	}
-	go coco.Measure(config.Measure, chans)
+	go coco.Measure(config.Measure, chans, &tiers, mapping)
 
 	// Launch components to do the work
 	go coco.Listen(config.Listen, raw)

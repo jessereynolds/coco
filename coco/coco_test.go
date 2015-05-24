@@ -314,7 +314,7 @@ func TestMeasure(t *testing.T) {
 		TickInterval: *new(coco.Duration),
 	}
 	measureConfig.TickInterval.UnmarshalText([]byte("1ms"))
-	go coco.Measure(measureConfig, chans)
+	go coco.Measure(measureConfig, chans, &tiers, mapping)
 
 	// Test pushing packets
 	for _, c := range chans {

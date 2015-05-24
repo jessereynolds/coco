@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-func Measure(config MeasureConfig, chans map[string]chan collectd.Packet) {
+func Measure(config MeasureConfig, chans map[string]chan collectd.Packet, tiers *[]Tier, mapping map[string]map[string]map[string]int64) {
 	tick := time.NewTicker(config.Interval()).C
 	for n, _ := range chans {
 		log.Println("info: measure: measuring queue", n)
@@ -27,8 +27,52 @@ func Measure(config MeasureConfig, chans map[string]chan collectd.Packet) {
 	for {
 		select {
 		case <-tick:
+			// Queue lengths
 			for n, c := range chans {
 				queueCounts.Get(n).(*expvar.Int).Set(int64(len(c)))
+			}
+
+			// Metric-to-host ratios per tier
+			for _, tier := range *tiers {
+				var min int
+				var max int
+				var sum int
+				var length int
+				var n int
+				// Find min + max
+				for t, hosts := range mapping {
+					if t == "filtered" {
+						continue
+					}
+					sizes := []int{}
+					for _, metrics := range hosts {
+						sizes = append(sizes, len(metrics))
+						sum += len(metrics)
+					}
+					if len(sizes) == 0 {
+						continue
+					}
+					sort.Ints(sizes)
+					min = sizes[0]
+					max = sizes[len(sizes)-1]
+					length = len(sizes)
+					n = sizes[int(float64(length)*0.95)]
+				}
+				// Build summary
+				ratioCountsMap := new(expvar.Map).Init()
+				mine := new(expvar.Int)
+				mine.Set(int64(min))
+				ratioCountsMap.Set("min", mine)
+				maxe := new(expvar.Int)
+				maxe.Set(int64(max))
+				ratioCountsMap.Set("max", maxe)
+				avge := new(expvar.Float)
+				avge.Set(float64(sum) / float64(length))
+				ratioCountsMap.Set("avg", avge)
+				ne := new(expvar.Int)
+				ne.Set(int64(n))
+				ratioCountsMap.Set("95e", ne)
+				ratioCounts.Set(tier.Name, ratioCountsMap)
 			}
 		}
 	}
@@ -126,20 +170,6 @@ func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collect
 }
 
 func Send(tiers *[]Tier, filtered chan collectd.Packet, mapping map[string]map[string]map[string]int64) {
-	/*
-		ratioCounts.Set("tier1", new(expvar.Map).Init())
-		ratioCounts.Set("tier2", new(expvar.Map).Init())
-
-		ratioCountsMap := new(expvar.Map).Init()
-		i := new(expvar.Int)
-		i.Set(1)
-		ratioCountsMap.Set("min", i)
-		ratioCountsMap.Set("max", &expvar.Int{})
-		ratioCounts.Set("tier1", ratioCountsMap)
-	*/
-
-	//metricCounts.Get(target).(*expvar.Int).Set(int64(mc))
-
 	// Initialise the error counts
 	errorCounts.Add("send.dial", 0)
 	errorCounts.Add("send.write", 0)
@@ -225,48 +255,6 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, mapping map[string]map[s
 			sendCounts.Add(target, 1)
 			sendCounts.Add("total", 1)
 
-			defer func() {
-				// Update totals
-				var min int
-				var max int
-				var sum int
-				var length int
-				var n int
-				// Find min + max
-				for t, hosts := range mapping {
-					if t == "filtered" {
-						continue
-					}
-					sizes := []int{}
-					for _, metrics := range hosts {
-						sizes = append(sizes, len(metrics))
-						sum += len(metrics)
-					}
-					if len(sizes) == 0 {
-						continue
-					}
-					sort.Ints(sizes)
-					min = sizes[0]
-					max = sizes[len(sizes)-1]
-					length = len(sizes)
-					n = sizes[int(float64(length)*0.95)]
-				}
-				// Build summary
-				ratioCountsMap := new(expvar.Map).Init()
-				mine := new(expvar.Int)
-				mine.Set(int64(min))
-				ratioCountsMap.Set("min", mine)
-				maxe := new(expvar.Int)
-				maxe.Set(int64(max))
-				ratioCountsMap.Set("max", maxe)
-				avge := new(expvar.Float)
-				avge.Set(float64(sum) / float64(length))
-				ratioCountsMap.Set("avg", avge)
-				ne := new(expvar.Int)
-				ne.Set(int64(n))
-				ratioCountsMap.Set("95e", ne)
-				ratioCounts.Set(tier.Name, ratioCountsMap)
-			}()
 		}
 	}
 }
