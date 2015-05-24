@@ -228,20 +228,25 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, mapping map[string]map[s
 			var min int
 			var max int
 			var sum int
-			for t, host := range mapping {
+			var length int
+			// Find min + max
+			for t, hosts := range mapping {
 				if t == "filtered" {
 					continue
 				}
-				for _, metrics := range host {
-					if min == 0 || len(metrics) < min {
-						min = len(metrics)
+				length += len(hosts)
+				for _, metrics := range hosts {
+					size := len(metrics)
+					sum += size
+					if min == 0 || size < min {
+						min = size
 					}
-					if len(metrics) > max {
-						max = len(metrics)
+					if size > max {
+						max = size
 					}
-					sum = sum + len(metrics)
 				}
 			}
+			// Build summary
 			ratioCountsMap := new(expvar.Map).Init()
 			mine := new(expvar.Int)
 			mine.Set(int64(min))
@@ -249,9 +254,9 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, mapping map[string]map[s
 			maxe := new(expvar.Int)
 			maxe.Set(int64(max))
 			ratioCountsMap.Set("max", maxe)
-			sume := new(expvar.Int)
-			sume.Set(int64(sum))
-			ratioCountsMap.Set("sum", sume)
+			avge := new(expvar.Float)
+			avge.Set(float64(sum) / float64(length))
+			ratioCountsMap.Set("avg", avge)
 			ratioCounts.Set(tier.Name, ratioCountsMap)
 		}
 	}
