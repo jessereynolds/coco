@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
@@ -229,22 +230,22 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, mapping map[string]map[s
 			var max int
 			var sum int
 			var length int
+			var n int
 			// Find min + max
 			for t, hosts := range mapping {
 				if t == "filtered" {
 					continue
 				}
-				length += len(hosts)
+				sizes := []int{}
 				for _, metrics := range hosts {
-					size := len(metrics)
-					sum += size
-					if min == 0 || size < min {
-						min = size
-					}
-					if size > max {
-						max = size
-					}
+					sizes = append(sizes, len(metrics))
+					sum += len(metrics)
 				}
+				sort.Ints(sizes)
+				min = sizes[0]
+				max = sizes[len(sizes)-1]
+				length = len(sizes)
+				n = sizes[int(float64(length)*0.95)]
 			}
 			// Build summary
 			ratioCountsMap := new(expvar.Map).Init()
@@ -257,6 +258,9 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, mapping map[string]map[s
 			avge := new(expvar.Float)
 			avge.Set(float64(sum) / float64(length))
 			ratioCountsMap.Set("avg", avge)
+			ne := new(expvar.Int)
+			ne.Set(int64(n))
+			ratioCountsMap.Set("95e", ne)
 			ratioCounts.Set(tier.Name, ratioCountsMap)
 		}
 	}
