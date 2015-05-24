@@ -39,8 +39,8 @@ func TestFilterBlacklistsSamples(t *testing.T) {
 	}
 	raw := make(chan collectd.Packet)
 	filtered := make(chan collectd.Packet)
-	servers := map[string]map[string]int64{}
-	go coco.Filter(config, raw, filtered, servers)
+	mapping := map[string]map[string]map[string]int64{}
+	go coco.Filter(config, raw, filtered, mapping)
 
 	count := 0
 	go func() {
@@ -136,8 +136,8 @@ func TestSend(t *testing.T) {
 	t.Logf("tiers: %+v\n", tiers)
 
 	filtered := make(chan collectd.Packet)
-	servers := map[string]map[string]int64{}
-	go coco.Send(&tiers, filtered, servers)
+	mapping := map[string]map[string]map[string]int64{}
+	go coco.Send(&tiers, filtered, mapping)
 
 	// Test dispatch
 	send := collectd.Packet{
@@ -190,8 +190,8 @@ func TestSendTiers(t *testing.T) {
 	}
 
 	filtered := make(chan collectd.Packet)
-	servers := map[string]map[string]int64{}
-	go coco.Send(&tiers, filtered, servers)
+	mapping := map[string]map[string]map[string]int64{}
+	go coco.Send(&tiers, filtered, mapping)
 
 	// Test dispatch
 	send := collectd.Packet{
@@ -223,14 +223,14 @@ func TestTierLookup(t *testing.T) {
 	}
 
 	filtered := make(chan collectd.Packet)
-	servers := map[string]map[string]int64{}
-	go coco.Send(&tiers, filtered, servers)
+	mapping := map[string]map[string]map[string]int64{}
+	go coco.Send(&tiers, filtered, mapping)
 
 	// Setup API
 	apiConfig := coco.ApiConfig{
 		Bind: "0.0.0.0:25999",
 	}
-	go coco.Api(apiConfig, &tiers, servers)
+	go coco.Api(apiConfig, &tiers, mapping)
 
 	poll(t, apiConfig.Bind)
 
@@ -268,8 +268,8 @@ func TestExpvars(t *testing.T) {
 	apiConfig := coco.ApiConfig{
 		Bind: "127.0.0.1:26080",
 	}
-	servers := map[string]map[string]int64{}
-	go coco.Api(apiConfig, &tiers, servers)
+	mapping := map[string]map[string]map[string]int64{}
+	go coco.Api(apiConfig, &tiers, mapping)
 
 	poll(t, apiConfig.Bind)
 
@@ -301,8 +301,8 @@ func TestMeasure(t *testing.T) {
 		Bind: "127.0.0.1:26081",
 	}
 	var tiers []coco.Tier
-	servers := map[string]map[string]int64{}
-	go coco.Api(apiConfig, &tiers, servers)
+	mapping := map[string]map[string]map[string]int64{}
+	go coco.Api(apiConfig, &tiers, mapping)
 
 	poll(t, apiConfig.Bind)
 
@@ -364,8 +364,8 @@ func TestVariance(t *testing.T) {
 	}
 
 	filtered := make(chan collectd.Packet)
-	servers := map[string]map[string]int64{}
-	go coco.Send(&tiers, filtered, servers)
+	mapping := map[string]map[string]map[string]int64{}
+	go coco.Send(&tiers, filtered, mapping)
 
 	// Test dispatch
 	for i := 0; i < 100000; i++ {
@@ -387,7 +387,7 @@ func TestVariance(t *testing.T) {
 
 	var min float64
 	var max float64
-	for _, v := range servers {
+	for _, v := range mapping {
 		size := float64(len(v))
 		if min == 0 || size < min {
 			min = size
