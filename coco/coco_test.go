@@ -77,25 +77,23 @@ func TestFilterBlacklistsSamples(t *testing.T) {
 // Test that we can generate a metric name
 func TestGenerateMetricName(t *testing.T) {
 	packet := collectd.Packet{
-		Hostname:     "foo",
 		Plugin:       "irq",
 		Type:         "irq",
 		TypeInstance: "7",
 	}
 	name := coco.MetricName(packet)
-	expected := 3
+	expected := 2
 	actual := strings.Count(name, "/")
 	if actual != expected {
 		t.Errorf("Expected %d / separators, got %d", expected, actual)
 	}
 
 	packet = collectd.Packet{
-		Hostname: "foo",
-		Plugin:   "load",
-		Type:     "load",
+		Plugin: "load",
+		Type:   "load",
 	}
 	name = coco.MetricName(packet)
-	expected = 2
+	expected = 1
 	actual = strings.Count(name, "/")
 	if actual != expected {
 		t.Errorf("Expected %d / separators, got %d", expected, actual)
