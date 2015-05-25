@@ -23,7 +23,6 @@ func main() {
 	}
 
 	// Setup data structures to be shared across components
-	//      map[target]map[host]map[metric]lastseen
 	blacklisted := map[string]map[string]int64{}
 	raw := make(chan collectd.Packet, 1000000)
 	filtered := make(chan collectd.Packet, 1000000)

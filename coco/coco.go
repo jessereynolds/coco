@@ -549,7 +549,7 @@ type Tier struct {
 	Targets []string               `json:"targets"`
 	Hash    *consistent.Consistent `json:"-"`
 	Shadows map[string]string      `json:"shadows"`
-	// target -> sample host -> sample metric name -> last dispatched
+	// map[target]map[sample host]map[sample metric name]last dispatched
 	Mappings    map[string]map[string]map[string]int64 `json:"routes"`
 	Connections map[string]net.Conn                    `json:"connections,nil"`
 }
