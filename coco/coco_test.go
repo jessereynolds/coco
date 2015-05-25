@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -39,8 +40,8 @@ func TestFilterBlacklistsSamples(t *testing.T) {
 	}
 	raw := make(chan collectd.Packet)
 	filtered := make(chan collectd.Packet)
-	mapping := map[string]map[string]map[string]int64{}
-	go coco.Filter(config, raw, filtered, mapping)
+	blacklisted := map[string]map[string]int64{}
+	go coco.Filter(config, raw, filtered, &blacklisted)
 
 	count := 0
 	go func() {
@@ -225,7 +226,8 @@ func TestTierLookup(t *testing.T) {
 	apiConfig := coco.ApiConfig{
 		Bind: "0.0.0.0:25999",
 	}
-	go coco.Api(apiConfig, &tiers)
+	blacklisted := map[string]map[string]int64{}
+	go coco.Api(apiConfig, &tiers, &blacklisted)
 
 	poll(t, apiConfig.Bind)
 
@@ -263,7 +265,8 @@ func TestExpvars(t *testing.T) {
 	apiConfig := coco.ApiConfig{
 		Bind: "127.0.0.1:26080",
 	}
-	go coco.Api(apiConfig, &tiers)
+	blacklisted := map[string]map[string]int64{}
+	go coco.Api(apiConfig, &tiers, &blacklisted)
 
 	poll(t, apiConfig.Bind)
 
@@ -295,7 +298,8 @@ func TestMeasure(t *testing.T) {
 		Bind: "127.0.0.1:26081",
 	}
 	var tiers []coco.Tier
-	go coco.Api(apiConfig, &tiers)
+	blacklisted := map[string]map[string]int64{}
+	go coco.Api(apiConfig, &tiers, &blacklisted)
 
 	poll(t, apiConfig.Bind)
 
@@ -397,5 +401,56 @@ func TestVariance(t *testing.T) {
 		if variance > maxVariance {
 			t.Fatalf("Variance was %.4f, expected < %.4f", variance, maxVariance)
 		}
+	}
+}
+
+func TestBlacklisted(t *testing.T) {
+	// Setup Filter
+	config := coco.FilterConfig{
+		Blacklist: "/(vmem|irq|entropy|users)/",
+	}
+	raw := make(chan collectd.Packet)
+	filtered := make(chan collectd.Packet)
+	blacklisted := map[string]map[string]int64{}
+	go coco.Filter(config, raw, filtered, &blacklisted)
+
+	// Setup Api
+	apiConfig := coco.ApiConfig{
+		Bind: "127.0.0.1:26082",
+	}
+	var tiers []coco.Tier
+	go coco.Api(apiConfig, &tiers, &blacklisted)
+	poll(t, apiConfig.Bind)
+
+	// Push 10 metrics through that should be blacklisted
+	for i := 0; i < 10; i++ {
+		raw <- collectd.Packet{
+			Hostname:     "foo",
+			Plugin:       "irq",
+			Type:         "irq",
+			TypeInstance: strconv.Itoa(i),
+		}
+	}
+
+	// Fetch blacklisted metrics
+	resp, err := http.Get("http://127.0.0.1:26082/blacklisted")
+	if err != nil {
+		t.Fatalf("HTTP GET failed: %s", err)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	var result map[string]interface{}
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		t.Errorf("Error when decoding JSON %+v.", err)
+		t.Errorf("Response body: %s", string(body))
+		t.FailNow()
+	}
+
+	// Test the metrics have been blacklisted
+	count := len(result["foo"].(map[string]interface{}))
+	expected := 10
+	if count != expected {
+		t.Errorf("Expected %d blacklisted metrics, got %d", count, expected)
 	}
 }

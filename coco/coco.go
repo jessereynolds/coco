@@ -135,8 +135,7 @@ func MetricName(packet collectd.Packet) string {
 	return strings.Join(parts, "/")
 }
 
-// FIXME(lindsay): mapping is still passed in here - need a way to track filtered metrics
-func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collectd.Packet, mapping map[string]map[string]map[string]int64) {
+func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collectd.Packet, blacklisted *map[string]map[string]int64) {
 	// Initialise the error counts
 	errorCounts.Add("filter.unhandled", 0)
 
@@ -147,7 +146,6 @@ func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collect
 		}
 	}()
 
-	mapping["filtered"] = make(map[string]map[string]int64)
 	for {
 		packet := <-raw
 		name := MetricName(packet)
@@ -158,10 +156,10 @@ func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collect
 			filtered <- packet
 			filterCounts.Add("accepted", 1)
 		} else {
-			if mapping["filtered"][packet.Hostname] == nil {
-				mapping["filtered"][packet.Hostname] = make(map[string]int64)
+			if (*blacklisted)[packet.Hostname] == nil {
+				(*blacklisted)[packet.Hostname] = make(map[string]int64)
 			}
-			mapping["filtered"][packet.Hostname][name] = time.Now().Unix()
+			(*blacklisted)[packet.Hostname][name] = time.Now().Unix()
 			filterCounts.Add("rejected", 1)
 		}
 	}
@@ -447,7 +445,7 @@ func ExpvarHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "}\n")
 }
 
-func Api(config ApiConfig, tiers *[]Tier) {
+func Api(config ApiConfig, tiers *[]Tier, blacklisted *map[string]map[string]int64) {
 	m := martini.Classic()
 	// Endpoint for looking up what storage nodes own metrics for a host
 	m.Get("/lookup", func(params martini.Params, req *http.Request) []byte {
@@ -459,6 +457,10 @@ func Api(config ApiConfig, tiers *[]Tier) {
 			data, _ := json.Marshal(*tiers)
 			return data
 		})
+	})
+	m.Get("/blacklisted", func(params martini.Params, req *http.Request) []byte {
+		data, _ := json.Marshal(*blacklisted)
+		return data
 	})
 	// Implement expvars.expvarHandler in Martini.
 	m.Get("/debug/vars", func(w http.ResponseWriter, r *http.Request) {
@@ -540,7 +542,7 @@ type Tier struct {
 	Targets []string               `json:"targets"`
 	Hash    *consistent.Consistent `json:"-"`
 	Shadows map[string]string      `json:"shadows"`
-	//	target -> sample host -> sample metric -> last dispatched
+	// target -> sample host -> sample metric name -> last dispatched
 	Mappings    map[string]map[string]map[string]int64 `json:"routes"`
 	Connections map[string]net.Conn                    `json:"connections,nil"`
 }

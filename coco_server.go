@@ -24,7 +24,7 @@ func main() {
 
 	// Setup data structures to be shared across components
 	//      map[target]map[host]map[metric]lastseen
-	mapping := map[string]map[string]map[string]int64{}
+	blacklisted := map[string]map[string]int64{}
 	raw := make(chan collectd.Packet, 1000000)
 	filtered := make(chan collectd.Packet, 1000000)
 
@@ -47,8 +47,8 @@ func main() {
 	// Launch components to do the work
 	go coco.Listen(config.Listen, raw)
 	for i := 0; i < 4; i++ {
-		go coco.Filter(config.Filter, raw, filtered, mapping)
+		go coco.Filter(config.Filter, raw, filtered, &blacklisted)
 	}
 	go coco.Send(&tiers, filtered)
-	coco.Api(config.Api, &tiers)
+	coco.Api(config.Api, &tiers, &blacklisted)
 }
