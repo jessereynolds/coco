@@ -134,8 +134,7 @@ func TestSend(t *testing.T) {
 	t.Logf("tiers: %+v\n", tiers)
 
 	filtered := make(chan collectd.Packet)
-	mapping := map[string]map[string]map[string]int64{}
-	go coco.Send(&tiers, filtered, mapping)
+	go coco.Send(&tiers, filtered)
 
 	// Test dispatch
 	send := collectd.Packet{
@@ -188,8 +187,7 @@ func TestSendTiers(t *testing.T) {
 	}
 
 	filtered := make(chan collectd.Packet)
-	mapping := map[string]map[string]map[string]int64{}
-	go coco.Send(&tiers, filtered, mapping)
+	go coco.Send(&tiers, filtered)
 
 	// Test dispatch
 	send := collectd.Packet{
@@ -221,14 +219,13 @@ func TestTierLookup(t *testing.T) {
 	}
 
 	filtered := make(chan collectd.Packet)
-	mapping := map[string]map[string]map[string]int64{}
-	go coco.Send(&tiers, filtered, mapping)
+	go coco.Send(&tiers, filtered)
 
 	// Setup API
 	apiConfig := coco.ApiConfig{
 		Bind: "0.0.0.0:25999",
 	}
-	go coco.Api(apiConfig, &tiers, mapping)
+	go coco.Api(apiConfig, &tiers)
 
 	poll(t, apiConfig.Bind)
 
@@ -266,8 +263,7 @@ func TestExpvars(t *testing.T) {
 	apiConfig := coco.ApiConfig{
 		Bind: "127.0.0.1:26080",
 	}
-	mapping := map[string]map[string]map[string]int64{}
-	go coco.Api(apiConfig, &tiers, mapping)
+	go coco.Api(apiConfig, &tiers)
 
 	poll(t, apiConfig.Bind)
 
@@ -299,8 +295,7 @@ func TestMeasure(t *testing.T) {
 		Bind: "127.0.0.1:26081",
 	}
 	var tiers []coco.Tier
-	mapping := map[string]map[string]map[string]int64{}
-	go coco.Api(apiConfig, &tiers, mapping)
+	go coco.Api(apiConfig, &tiers)
 
 	poll(t, apiConfig.Bind)
 
@@ -314,7 +309,7 @@ func TestMeasure(t *testing.T) {
 		TickInterval: *new(coco.Duration),
 	}
 	measureConfig.TickInterval.UnmarshalText([]byte("1ms"))
-	go coco.Measure(measureConfig, chans, &tiers, mapping)
+	go coco.Measure(measureConfig, chans, &tiers)
 
 	// Test pushing packets
 	for _, c := range chans {
@@ -363,7 +358,7 @@ func TestVariance(t *testing.T) {
 
 	filtered := make(chan collectd.Packet)
 	mapping := map[string]map[string]map[string]int64{}
-	go coco.Send(&tiers, filtered, mapping)
+	go coco.Send(&tiers, filtered)
 
 	// Test dispatch
 	for i := 0; i < 100000; i++ {
