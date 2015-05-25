@@ -454,9 +454,8 @@ func Api(config ApiConfig, tiers *[]Tier) {
 		return TierLookup(params, req, tiers)
 	})
 	// Dump out the list of targets Coco is hashing metrics to
-	m.Group("/targets", func(r martini.Router) {
+	m.Group("/tiers", func(r martini.Router) {
 		r.Get("", func() []byte {
-			// FIXME(lindsay): this should provide a breakdown of mappings per tier
 			data, _ := json.Marshal(*tiers)
 			return data
 		})
