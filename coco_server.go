@@ -42,13 +42,13 @@ func main() {
 		"raw":      raw,
 		"filtered": filtered,
 	}
-	go coco.Measure(config.Measure, chans, &tiers, mapping)
+	go coco.Measure(config.Measure, chans, &tiers)
 
 	// Launch components to do the work
 	go coco.Listen(config.Listen, raw)
 	for i := 0; i < 4; i++ {
 		go coco.Filter(config.Filter, raw, filtered, mapping)
 	}
-	go coco.Send(&tiers, filtered, mapping)
-	coco.Api(config.Api, &tiers, mapping)
+	go coco.Send(&tiers, filtered)
+	coco.Api(config.Api, &tiers)
 }

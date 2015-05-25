@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-func Measure(config MeasureConfig, chans map[string]chan collectd.Packet, tiers *[]Tier, mapping map[string]map[string]map[string]int64) {
+func Measure(config MeasureConfig, chans map[string]chan collectd.Packet, tiers *[]Tier) {
 	tick := time.NewTicker(config.Interval()).C
 	for n, _ := range chans {
 		log.Println("info: measure: measuring queue", n)
@@ -40,10 +40,7 @@ func Measure(config MeasureConfig, chans map[string]chan collectd.Packet, tiers 
 				var length int
 				var n int
 				// Find min + max
-				for t, hosts := range mapping {
-					if t == "filtered" {
-						continue
-					}
+				for _, hosts := range tier.Mappings {
 					sizes := []int{}
 					for _, metrics := range hosts {
 						sizes = append(sizes, len(metrics))
@@ -138,6 +135,7 @@ func MetricName(packet collectd.Packet) string {
 	return strings.Join(parts, "/")
 }
 
+// FIXME(lindsay): mapping is still passed in here - need a way to track filtered metrics
 func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collectd.Packet, mapping map[string]map[string]map[string]int64) {
 	// Initialise the error counts
 	errorCounts.Add("filter.unhandled", 0)
@@ -169,17 +167,21 @@ func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collect
 	}
 }
 
-func Send(tiers *[]Tier, filtered chan collectd.Packet, mapping map[string]map[string]map[string]int64) {
+func Send(tiers *[]Tier, filtered chan collectd.Packet) {
 	// Initialise the error counts
 	errorCounts.Add("send.dial", 0)
 	errorCounts.Add("send.write", 0)
 
-	// map that tracks all the UDP connections
-	connections := make(map[string]net.Conn)
-
 	for i, tier := range *tiers {
+		// The consistent hashing function used to map sample hosts to targets
 		(*tiers)[i].Hash = consistent.New()
+		// Shadow names for targets, used to improve hash distribution
 		(*tiers)[i].Shadows = make(map[string]string)
+		// map that tracks all the UDP connections
+		(*tiers)[i].Connections = make(map[string]net.Conn)
+		// map that tracks all target -> host -> metric -> last dispatched relationships
+		(*tiers)[i].Mappings = make(map[string]map[string]map[string]int64)
+
 		// Populate ratio counters per tier
 		ratioCounts.Set(tier.Name, new(expvar.Map).Init())
 
@@ -195,8 +197,8 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, mapping map[string]map[s
 					log.Printf("warning: %s is local. You may be looping metrics back to coco!", conn.RemoteAddr())
 					log.Printf("warning: send dutifully adding %s to hash anyway, but beware!", conn.RemoteAddr())
 				}
-				mapping[t] = make(map[string]map[string]int64)
-				connections[t] = conn
+				(*tiers)[i].Connections[t] = conn
+				(*tiers)[i].Mappings[t] = make(map[string]map[string]int64)
 				shadow_t := string(it)
 				(*tiers)[i].Shadows[shadow_t] = t
 				(*tiers)[i].Hash.Add(shadow_t)
@@ -216,8 +218,10 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, mapping map[string]map[s
 		log.Printf("info: send: tier %s hash ring has %d members: %s", tier.Name, len(hash.Members()), targets)
 	}
 
-	if len(connections) == 0 {
-		log.Fatal("fatal: send: no targets in any hash ring in any tier")
+	for _, tier := range *tiers {
+		if len(tier.Connections) == 0 {
+			log.Fatalf("fatal: send: no targets available in tier %s", tier.Name)
+		}
 	}
 
 	for {
@@ -232,29 +236,28 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet, mapping map[string]map[s
 
 			// Update metadata
 			name := MetricName(packet)
-			if mapping[target][packet.Hostname] == nil {
-				mapping[target][packet.Hostname] = make(map[string]int64)
+			if tier.Mappings[target][packet.Hostname] == nil {
+				tier.Mappings[target][packet.Hostname] = make(map[string]int64)
 			}
-			mapping[target][packet.Hostname][name] = time.Now().Unix()
+			tier.Mappings[target][packet.Hostname][name] = time.Now().Unix()
 
 			// Dispatch the metric
 			payload := Encode(packet)
-			_, err = connections[target].Write(payload)
+			_, err = tier.Connections[target].Write(payload)
 			if err != nil {
 				errorCounts.Add("send.write", 1)
 				continue
 			}
 
 			// Update counters
-			hostCounts.Get(target).(*expvar.Int).Set(int64(len(mapping[target])))
+			hostCounts.Get(target).(*expvar.Int).Set(int64(len(tier.Mappings[target])))
 			mc := 0
-			for _, v := range mapping[target] {
+			for _, v := range tier.Mappings[target] {
 				mc += len(v)
 			}
 			metricCounts.Get(target).(*expvar.Int).Set(int64(mc))
 			sendCounts.Add(target, 1)
 			sendCounts.Add("total", 1)
-
 		}
 	}
 }
@@ -444,7 +447,7 @@ func ExpvarHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "}\n")
 }
 
-func Api(config ApiConfig, tiers *[]Tier, mapping map[string]map[string]map[string]int64) {
+func Api(config ApiConfig, tiers *[]Tier) {
 	m := martini.Classic()
 	// Endpoint for looking up what storage nodes own metrics for a host
 	m.Get("/lookup", func(params martini.Params, req *http.Request) []byte {
@@ -453,7 +456,8 @@ func Api(config ApiConfig, tiers *[]Tier, mapping map[string]map[string]map[stri
 	// Dump out the list of targets Coco is hashing metrics to
 	m.Group("/targets", func(r martini.Router) {
 		r.Get("", func() []byte {
-			data, _ := json.Marshal(mapping)
+			// FIXME(lindsay): this should provide a breakdown of mappings per tier
+			data, _ := json.Marshal(*tiers)
 			return data
 		})
 	})
@@ -537,6 +541,9 @@ type Tier struct {
 	Targets []string
 	Hash    *consistent.Consistent
 	Shadows map[string]string
+	//		 target -> sample host -> sample metric -> last dispatched
+	Mappings    map[string]map[string]map[string]int64
+	Connections map[string]net.Conn
 }
 
 var (
