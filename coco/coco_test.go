@@ -357,7 +357,6 @@ func TestVariance(t *testing.T) {
 	}
 
 	filtered := make(chan collectd.Packet)
-	mapping := map[string]map[string]map[string]int64{}
 	go coco.Send(&tiers, filtered)
 
 	// Test dispatch
@@ -378,24 +377,25 @@ func TestVariance(t *testing.T) {
 		}
 	}
 
-	var min float64
-	var max float64
-	for _, v := range mapping {
-		size := float64(len(v))
-		if min == 0 || size < min {
-			min = size
+	for _, tier := range tiers {
+		var min float64
+		var max float64
+		for _, v := range tier.Mappings {
+			size := float64(len(v))
+			if min == 0 || size < min {
+				min = size
+			}
+			if size > max {
+				max = size
+			}
 		}
-		if size > max {
-			max = size
+		variance := max / min
+		maxVariance := 1.2
+		t.Logf("Min: %.2f\n", min)
+		t.Logf("Max: %.2f\n", max)
+		t.Logf("Variance: %.4f\n", variance)
+		if variance > maxVariance {
+			t.Fatalf("Variance was %.4f, expected < %.4f", variance, maxVariance)
 		}
-	}
-
-	variance := max / min
-	maxVariance := 1.2
-	t.Logf("Min: %.2f\n", min)
-	t.Logf("Max: %.2f\n", max)
-	t.Logf("Variance: %.4f\n", variance)
-	if variance > maxVariance {
-		t.Fatalf("Variance was %.4f, expected < %.4f", variance, maxVariance)
 	}
 }
