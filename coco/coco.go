@@ -165,10 +165,10 @@ func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collect
 	}
 }
 
-func Send(tiers *[]Tier, filtered chan collectd.Packet) {
+// buildTiers sets up tiers so it's ready to dispatch metrics
+func buildTiers(tiers *[]Tier) {
 	// Initialise the error counts
 	errorCounts.Add("send.dial", 0)
-	errorCounts.Add("send.write", 0)
 
 	for i, tier := range *tiers {
 		// The consistent hashing function used to map sample hosts to targets
@@ -221,6 +221,13 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet) {
 			log.Fatalf("fatal: send: no targets available in tier %s", tier.Name)
 		}
 	}
+}
+
+func Send(tiers *[]Tier, filtered chan collectd.Packet) {
+	// Initialise the error counts
+	errorCounts.Add("send.write", 0)
+
+	buildTiers(tiers)
 
 	for {
 		packet := <-filtered
