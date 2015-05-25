@@ -537,13 +537,13 @@ func (d *Duration) UnmarshalText(text []byte) error {
 }
 
 type Tier struct {
-	Name    string
-	Targets []string
-	Hash    *consistent.Consistent
-	Shadows map[string]string
-	//		 target -> sample host -> sample metric -> last dispatched
-	Mappings    map[string]map[string]map[string]int64
-	Connections map[string]net.Conn
+	Name    string                 `json:"name"`
+	Targets []string               `json:"targets"`
+	Hash    *consistent.Consistent `json:"-"`
+	Shadows map[string]string      `json:"shadows"`
+	//	target -> sample host -> sample metric -> last dispatched
+	Mappings    map[string]map[string]map[string]int64 `json:"routes"`
+	Connections map[string]net.Conn                    `json:"connections,nil"`
 }
 
 var (
