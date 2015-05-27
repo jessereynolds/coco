@@ -369,9 +369,9 @@ func TestMeasureQueues(t *testing.T) {
 func TestMeasureDistributionSummaryStats(t *testing.T) {
 	// Setup tiers
 	tierConfig := make(map[string]coco.TierConfig)
-	tierConfig["a"] = coco.TierConfig{
-		Targets: []string{"127.0.0.1:25811", "127.0.0.1:25812", "127.0.0.1:25813"},
-	}
+	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:25811", "127.0.0.1:25812", "127.0.0.1:25813"}}
+	tierConfig["b"] = coco.TierConfig{Targets: []string{"127.0.0.1:25821", "127.0.0.1:25822", "127.0.0.1:25823"}}
+	tierConfig["c"] = coco.TierConfig{Targets: []string{"127.0.0.1:25831", "127.0.0.1:25832", "127.0.0.1:25833"}}
 
 	for _, v := range tierConfig {
 		for _, target := range v.Targets {
@@ -443,7 +443,7 @@ func TestMeasureDistributionSummaryStats(t *testing.T) {
 	t.Logf("Expvar tier props: %+v\n", tierProps)
 	if len(tiers) != len(tierProps) {
 		t.Errorf("Expected %d tiers to be exposed, got %d\n", len(tiers), len(tierProps))
-		t.Errorf("Tiers: %+v\n", tiers)
+		//t.Errorf("Tiers: %+v\n", tiers)
 		t.Errorf("Exposed tiers: %+v\n", tierProps)
 	}
 	for _, tier := range tiers {
