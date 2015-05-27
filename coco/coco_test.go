@@ -373,7 +373,6 @@ func TestMeasureDistributionSummaryStats(t *testing.T) {
 		Targets: []string{"127.0.0.1:25811", "127.0.0.1:25812", "127.0.0.1:25813"},
 	}
 
-	// FIXME(lindsay): fire up a mock receiver per target
 	for _, v := range tierConfig {
 		for _, target := range v.Targets {
 			go MockListener(t, target)
@@ -442,7 +441,7 @@ func TestMeasureDistributionSummaryStats(t *testing.T) {
 	// Test the exposed expvars data looks sane
 	tierProps := result["coco"].(map[string]interface{})["hash.metrics_per_host"].(map[string]interface{})
 	t.Logf("Expvar tier props: %+v\n", tierProps)
-	if len(tierProps) != len(tiers) {
+	if len(tiers) != len(tierProps) {
 		t.Errorf("Expected %d tiers to be exposed, got %d\n", len(tiers), len(tierProps))
 		t.Errorf("Tiers: %+v\n", tiers)
 		t.Errorf("Exposed tiers: %+v\n", tierProps)
