@@ -562,7 +562,7 @@ var (
 	sendCounts   = expvar.NewMap("coco.send")
 	metricCounts = expvar.NewMap("coco.hash.metrics")
 	hostCounts   = expvar.NewMap("coco.hash.hosts")
-	ratioCounts  = expvar.NewMap("coco.hash.ratios")
+	ratioCounts  = expvar.NewMap("coco.hash.metrics_per_host")
 	lookupCounts = expvar.NewMap("coco.lookup")
 	queueCounts  = expvar.NewMap("coco.queues")
 	errorCounts  = expvar.NewMap("coco.errors")
