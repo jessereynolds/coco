@@ -55,12 +55,14 @@ func determineProperties(sizes []int) *expvar.Map {
 // calculateTargetSummaryStats builds per-tier, per-target, metric-to-host summary stats
 func calculateTargetSummaryStats(tiers *[]Tier) {
 	for _, tier := range *tiers {
+		totalSizes := []int{}
 		tierStats := new(expvar.Map).Init()
 		// Determine summary stats per target
 		for target, hosts := range tier.Mappings {
 			sizes := []int{}
 			for _, metrics := range hosts {
 				sizes = append(sizes, len(metrics))
+				totalSizes = append(totalSizes, len(metrics))
 			}
 			if len(sizes) == 0 {
 				continue
@@ -69,6 +71,8 @@ func calculateTargetSummaryStats(tiers *[]Tier) {
 			props := determineProperties(sizes)
 			tierStats.Set(target, props)
 		}
+		props := determineProperties(totalSizes)
+		tierStats.Set("total", props)
 		distCounts.Set(tier.Name, tierStats)
 	}
 }

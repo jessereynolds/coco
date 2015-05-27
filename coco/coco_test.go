@@ -448,8 +448,8 @@ func TestMeasureDistributionSummaryStats(t *testing.T) {
 	}
 	for _, tier := range tiers {
 		targetProps := tierProps[tier.Name].(map[string]interface{})
-		if len(targetProps) != len(tier.Targets) {
-			t.Errorf("Expected %d targets to be exposed, got %d\n", len(tier.Targets), len(targetProps))
+		if len(targetProps) != len(tier.Targets)+1 {
+			t.Errorf("Expected %d targets to be exposed, got %d\n", len(tier.Targets)+1, len(targetProps))
 			t.Errorf("Tier targets: %+v\n", tier.Targets)
 			t.Errorf("Exposed target properties: %+v\n", targetProps)
 		}
