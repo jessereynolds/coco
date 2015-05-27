@@ -329,7 +329,7 @@ func TestMeasureQueues(t *testing.T) {
 	measureConfig := coco.MeasureConfig{
 		TickInterval: *new(coco.Duration),
 	}
-	measureConfig.TickInterval.UnmarshalText([]byte("1ms"))
+	measureConfig.TickInterval.UnmarshalText([]byte("10ms"))
 	go coco.Measure(measureConfig, chans, &tiers)
 
 	// Test pushing packets
