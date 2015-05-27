@@ -361,7 +361,7 @@ func TestMeasureQueues(t *testing.T) {
 	for k, v := range counts {
 		c := int(v.(float64))
 		if c != expected {
-			t.Errorf("Expected %s to equal %d, got %d", k, expected, v)
+			t.Errorf("Expected %s to equal %d, got %.2f", k, expected, v)
 		}
 	}
 }
