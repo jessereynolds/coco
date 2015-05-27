@@ -18,6 +18,49 @@ import (
 	"time"
 )
 
+func calculateMetricsPerHost(tiers *[]Tier) {
+	for _, tier := range *tiers {
+		tierStats := new(expvar.Map).Init()
+		// Determine summary stats per target
+		for target, hosts := range tier.Mappings {
+			var sum int
+			sizes := []int{}
+			for _, metrics := range hosts {
+				sizes = append(sizes, len(metrics))
+				sum += len(metrics)
+			}
+			if len(sizes) == 0 {
+				continue
+			}
+			sort.Ints(sizes)
+			min := sizes[0]
+			max := sizes[len(sizes)-1]
+			length := len(sizes)
+			n := sizes[int(float64(length)*0.95)]
+
+			// Build summary
+			stats := new(expvar.Map).Init()
+			mine := new(expvar.Int)
+			mine.Set(int64(min))
+			stats.Set("min", mine)
+			maxe := new(expvar.Int)
+			maxe.Set(int64(max))
+			stats.Set("max", maxe)
+			sume := new(expvar.Int)
+			sume.Set(int64(sum))
+			stats.Set("sum", sume)
+			avge := new(expvar.Float)
+			avge.Set(float64(sum) / float64(length))
+			stats.Set("avg", avge)
+			ne := new(expvar.Int)
+			ne.Set(int64(n))
+			stats.Set("95e", ne)
+			tierStats.Set(target, stats)
+		}
+		distCounts.Set(tier.Name, tierStats)
+	}
+}
+
 func Measure(config MeasureConfig, chans map[string]chan collectd.Packet, tiers *[]Tier) {
 	tick := time.NewTicker(config.Interval()).C
 	for n, _ := range chans {
@@ -33,46 +76,7 @@ func Measure(config MeasureConfig, chans map[string]chan collectd.Packet, tiers 
 			}
 
 			// Metric-to-host ratios per tier
-			for _, tier := range *tiers {
-				tierStats := new(expvar.Map).Init()
-				// Determine summary stats per target
-				for target, hosts := range tier.Mappings {
-					var sum int
-					sizes := []int{}
-					for _, metrics := range hosts {
-						sizes = append(sizes, len(metrics))
-						sum += len(metrics)
-					}
-					if len(sizes) == 0 {
-						continue
-					}
-					sort.Ints(sizes)
-					min := sizes[0]
-					max := sizes[len(sizes)-1]
-					length := len(sizes)
-					n := sizes[int(float64(length)*0.95)]
-
-					// Build summary
-					stats := new(expvar.Map).Init()
-					mine := new(expvar.Int)
-					mine.Set(int64(min))
-					stats.Set("min", mine)
-					maxe := new(expvar.Int)
-					maxe.Set(int64(max))
-					stats.Set("max", maxe)
-					sume := new(expvar.Int)
-					sume.Set(int64(sum))
-					stats.Set("sum", sume)
-					avge := new(expvar.Float)
-					avge.Set(float64(sum) / float64(length))
-					stats.Set("avg", avge)
-					ne := new(expvar.Int)
-					ne.Set(int64(n))
-					stats.Set("95e", ne)
-					tierStats.Set(target, stats)
-				}
-				ratioCounts.Set(tier.Name, tierStats)
-			}
+			calculateMetricsPerHost(tiers)
 		}
 	}
 }
@@ -183,7 +187,7 @@ func buildTiers(tiers *[]Tier) {
 		(*tiers)[i].Mappings = make(map[string]map[string]map[string]int64)
 
 		// Populate ratio counters per tier
-		ratioCounts.Set(tier.Name, new(expvar.Map).Init())
+		distCounts.Set(tier.Name, new(expvar.Map).Init())
 
 		for it, t := range tier.Targets {
 			conn, err := net.Dial("udp", t)
@@ -562,7 +566,7 @@ var (
 	sendCounts   = expvar.NewMap("coco.send")
 	metricCounts = expvar.NewMap("coco.hash.metrics")
 	hostCounts   = expvar.NewMap("coco.hash.hosts")
-	ratioCounts  = expvar.NewMap("coco.hash.metrics_per_host")
+	distCounts   = expvar.NewMap("coco.hash.metrics_per_host")
 	lookupCounts = expvar.NewMap("coco.lookup")
 	queueCounts  = expvar.NewMap("coco.queues")
 	errorCounts  = expvar.NewMap("coco.errors")
