@@ -5,6 +5,7 @@ import (
 	"github.com/bulletproofnetworks/marksman/coco/coco"
 	collectd "github.com/kimor79/gollectd"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"net/http"
 	"strconv"
@@ -12,6 +13,22 @@ import (
 	"testing"
 	"time"
 )
+
+// MockListener binds to an address listening for UDP datagrams, doing nothing with them
+func MockListener(t *testing.T, address string) {
+	laddr, err := net.ResolveUDPAddr("udp", address)
+	if err != nil {
+		t.Fatal("Couldn't resolve address", err)
+	}
+
+	_, err = net.ListenUDP("udp", laddr)
+	if err != nil {
+		t.Fatalf("Couldn't listen to %s: %s", address, err)
+	}
+
+	time.Sleep(10 * time.Second)
+	return
+}
 
 // poll repeatedly checks if a port is open, exits when it is, fails tests when it doesn't
 func poll(t *testing.T, address string) {
@@ -292,7 +309,7 @@ func TestExpvars(t *testing.T) {
 	}
 }
 
-func TestMeasure(t *testing.T) {
+func TestMeasureQueues(t *testing.T) {
 	// Setup Listen
 	apiConfig := coco.ApiConfig{
 		Bind: "127.0.0.1:26081",
@@ -345,6 +362,105 @@ func TestMeasure(t *testing.T) {
 		c := int(v.(float64))
 		if c != expected {
 			t.Errorf("Expected %s to equal %d, got %d", k, expected, v)
+		}
+	}
+}
+
+func TestMeasureDistributionSummaryStats(t *testing.T) {
+	// Setup tiers
+	tierConfig := make(map[string]coco.TierConfig)
+	tierConfig["a"] = coco.TierConfig{
+		Targets: []string{"127.0.0.1:25811", "127.0.0.1:25812", "127.0.0.1:25813"},
+	}
+
+	// FIXME(lindsay): fire up a mock receiver per target
+	for _, v := range tierConfig {
+		for _, target := range v.Targets {
+			go MockListener(t, target)
+		}
+	}
+
+	var tiers []coco.Tier
+	for k, v := range tierConfig {
+		tier := coco.Tier{Name: k, Targets: v.Targets}
+		tiers = append(tiers, tier)
+	}
+
+	// Setup Listen
+	apiConfig := coco.ApiConfig{
+		Bind: "127.0.0.1:26810",
+	}
+	blacklisted := map[string]map[string]int64{}
+	go coco.Api(apiConfig, &tiers, &blacklisted)
+	poll(t, apiConfig.Bind)
+
+	// Setup Measure
+	chans := map[string]chan collectd.Packet{}
+	measureConfig := coco.MeasureConfig{
+		TickInterval: *new(coco.Duration),
+	}
+	measureConfig.TickInterval.UnmarshalText([]byte("100ms"))
+	go coco.Measure(measureConfig, chans, &tiers)
+
+	// Setup Send
+	filtered := make(chan collectd.Packet)
+	go coco.Send(&tiers, filtered)
+
+	// Push packets to Send
+	// 1000 hosts
+	for i := 0; i < 1000; i++ {
+		// up to 24 cpus per host
+		iter := rand.Intn(24)
+		for n := 0; n < iter; n++ {
+			types := []string{"user", "system", "steal", "wait"}
+			for _, typ := range types {
+				filtered <- collectd.Packet{
+					Hostname: "foo" + string(i),
+					Plugin:   "cpu-" + strconv.Itoa(n),
+					Type:     "cpu-" + typ,
+				}
+			}
+		}
+	}
+
+	time.Sleep(10 * time.Millisecond)
+
+	// Fetch exposed expvars
+	resp, err := http.Get("http://127.0.0.1:26810/debug/vars")
+	if err != nil {
+		t.Fatalf("HTTP GET failed: %s", err)
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	var result map[string]interface{}
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		t.Errorf("Error when decoding JSON %+v.", err)
+		t.Errorf("Response body: %s", string(body))
+		t.FailNow()
+	}
+
+	// Test the exposed expvars data looks sane
+	tierProps := result["coco"].(map[string]interface{})["hash.metrics_per_host"].(map[string]interface{})
+	t.Logf("Expvar tier props: %+v\n", tierProps)
+	if len(tierProps) != len(tiers) {
+		t.Errorf("Expected %d tiers to be exposed, got %d\n", len(tiers), len(tierProps))
+		t.Errorf("Tiers: %+v\n", tiers)
+		t.Errorf("Exposed tiers: %+v\n", tierProps)
+	}
+	for _, tier := range tiers {
+		targetProps := tierProps[tier.Name].(map[string]interface{})
+		if len(targetProps) != len(tier.Targets) {
+			t.Errorf("Expected %d targets to be exposed, got %d\n", len(tier.Targets), len(targetProps))
+			t.Errorf("Tier targets: %+v\n", tier.Targets)
+			t.Errorf("Exposed target properties: %+v\n", targetProps)
+		}
+		for _, target := range tier.Targets {
+			props := targetProps[target].(map[string]interface{})
+			for _, k := range []string{"95e", "avg", "max", "min", "sum"} {
+				if props[k] == nil {
+					t.Errorf("Expected %s metric was not exposed on %s\n", k, target)
+				}
+			}
 		}
 	}
 }

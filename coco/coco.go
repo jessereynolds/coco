@@ -18,44 +18,56 @@ import (
 	"time"
 )
 
-func calculateMetricsPerHost(tiers *[]Tier) {
+func determineProperties(sizes []int) *expvar.Map {
+	var sum int
+	for _, n := range sizes {
+		sum += n
+	}
+	// Determine properties
+	sort.Ints(sizes)
+	min := sizes[0]
+	max := sizes[len(sizes)-1]
+	length := len(sizes)
+	n := sizes[int(float64(length)*0.95)]
+	mean := float64(sum) / float64(length)
+
+	// Pack them into an expvar Map
+	props := new(expvar.Map).Init()
+	mine := new(expvar.Int)
+	mine.Set(int64(min))
+	props.Set("min", mine)
+	maxe := new(expvar.Int)
+	maxe.Set(int64(max))
+	props.Set("max", maxe)
+	sume := new(expvar.Int)
+	sume.Set(int64(sum))
+	props.Set("sum", sume)
+	avge := new(expvar.Float)
+	avge.Set(mean)
+	props.Set("avg", avge)
+	ne := new(expvar.Int)
+	ne.Set(int64(n))
+	props.Set("95e", ne)
+
+	return props
+}
+
+// calculateTargetSummaryStats builds per-tier, per-target, metric-to-host summary stats
+func calculateTargetSummaryStats(tiers *[]Tier) {
 	for _, tier := range *tiers {
 		tierStats := new(expvar.Map).Init()
 		// Determine summary stats per target
 		for target, hosts := range tier.Mappings {
-			var sum int
 			sizes := []int{}
 			for _, metrics := range hosts {
 				sizes = append(sizes, len(metrics))
-				sum += len(metrics)
 			}
 			if len(sizes) == 0 {
 				continue
 			}
-			sort.Ints(sizes)
-			min := sizes[0]
-			max := sizes[len(sizes)-1]
-			length := len(sizes)
-			n := sizes[int(float64(length)*0.95)]
-
 			// Build summary
-			stats := new(expvar.Map).Init()
-			mine := new(expvar.Int)
-			mine.Set(int64(min))
-			stats.Set("min", mine)
-			maxe := new(expvar.Int)
-			maxe.Set(int64(max))
-			stats.Set("max", maxe)
-			sume := new(expvar.Int)
-			sume.Set(int64(sum))
-			stats.Set("sum", sume)
-			avge := new(expvar.Float)
-			avge.Set(float64(sum) / float64(length))
-			stats.Set("avg", avge)
-			ne := new(expvar.Int)
-			ne.Set(int64(n))
-			stats.Set("95e", ne)
-			tierStats.Set(target, stats)
+			props := determineProperties(sizes)
+			tierStats.Set(target, props)
 		}
 		distCounts.Set(tier.Name, tierStats)
 	}
@@ -75,8 +87,8 @@ func Measure(config MeasureConfig, chans map[string]chan collectd.Packet, tiers 
 				queueCounts.Get(n).(*expvar.Int).Set(int64(len(c)))
 			}
 
-			// Metric-to-host ratios per tier
-			calculateMetricsPerHost(tiers)
+			// Per-tier, per-target, metric-to-host summary stats
+			calculateTargetSummaryStats(tiers)
 		}
 	}
 }
@@ -219,7 +231,7 @@ func buildTiers(tiers *[]Tier) {
 		for _, shadow_t := range hash.Members() {
 			targets = append(targets, tier.Shadows[shadow_t])
 		}
-		log.Printf("info: send: tier %s hash ring has %d members: %s", tier.Name, len(hash.Members()), targets)
+		log.Printf("info: send: tier '%s' hash ring has %d members: %s", tier.Name, len(hash.Members()), targets)
 	}
 
 	for _, tier := range *tiers {
