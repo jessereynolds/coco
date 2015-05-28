@@ -27,28 +27,24 @@ func determineProperties(sizes []int) *expvar.Map {
 	// Determine properties
 	sort.Ints(sizes)
 	if len(sizes) > 0 {
-		min := sizes[0]
-		max := sizes[len(sizes)-1]
-		length := len(sizes)
-		n := sizes[int(float64(length)*0.95)]
-		mean := float64(sum) / float64(length)
+		summary := map[string]int{
+			"min":    sizes[0],
+			"max":    sizes[len(sizes)-1],
+			"length": len(sizes),
+			"sum":    sum,
+			"95e":    sizes[int(float64(len(sizes))*0.95)],
+		}
+		mean := float64(sum) / float64(summary["length"])
 
 		// Pack them into an expvar Map
-		mine := new(expvar.Int)
-		mine.Set(int64(min))
-		props.Set("min", mine)
-		maxe := new(expvar.Int)
-		maxe.Set(int64(max))
-		props.Set("max", maxe)
-		sume := new(expvar.Int)
-		sume.Set(int64(sum))
-		props.Set("sum", sume)
+		for k, v := range summary {
+			n := new(expvar.Int)
+			n.Set(int64(v))
+			props.Set(k, n)
+		}
 		avge := new(expvar.Float)
 		avge.Set(mean)
 		props.Set("avg", avge)
-		ne := new(expvar.Int)
-		ne.Set(int64(n))
-		props.Set("95e", ne)
 	}
 
 	return props
