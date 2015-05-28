@@ -20,34 +20,37 @@ import (
 
 func determineProperties(sizes []int) *expvar.Map {
 	var sum int
+	props := new(expvar.Map).Init()
 	for _, n := range sizes {
 		sum += n
 	}
 	// Determine properties
 	sort.Ints(sizes)
-	min := sizes[0]
-	max := sizes[len(sizes)-1]
-	length := len(sizes)
-	n := sizes[int(float64(length)*0.95)]
-	mean := float64(sum) / float64(length)
+	if len(sizes) > 0 {
+		min := sizes[0]
+		max := sizes[len(sizes)-1]
+		length := len(sizes)
+		n := sizes[int(float64(length)*0.95)]
+		mean := float64(sum) / float64(length)
 
-	// Pack them into an expvar Map
-	props := new(expvar.Map).Init()
-	mine := new(expvar.Int)
-	mine.Set(int64(min))
-	props.Set("min", mine)
-	maxe := new(expvar.Int)
-	maxe.Set(int64(max))
-	props.Set("max", maxe)
-	sume := new(expvar.Int)
-	sume.Set(int64(sum))
-	props.Set("sum", sume)
-	avge := new(expvar.Float)
-	avge.Set(mean)
-	props.Set("avg", avge)
-	ne := new(expvar.Int)
-	ne.Set(int64(n))
-	props.Set("95e", ne)
+		// Pack them into an expvar Map
+		props := new(expvar.Map).Init()
+		mine := new(expvar.Int)
+		mine.Set(int64(min))
+		props.Set("min", mine)
+		maxe := new(expvar.Int)
+		maxe.Set(int64(max))
+		props.Set("max", maxe)
+		sume := new(expvar.Int)
+		sume.Set(int64(sum))
+		props.Set("sum", sume)
+		avge := new(expvar.Float)
+		avge.Set(mean)
+		props.Set("avg", avge)
+		ne := new(expvar.Int)
+		ne.Set(int64(n))
+		props.Set("95e", ne)
+	}
 
 	return props
 }
