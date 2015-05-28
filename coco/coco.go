@@ -199,6 +199,8 @@ func buildTiers(tiers *[]Tier) {
 		(*tiers)[i].Connections = make(map[string]net.Conn)
 		// map that tracks all target -> host -> metric -> last dispatched relationships
 		(*tiers)[i].Mappings = make(map[string]map[string]map[string]int64)
+		// Set the virtual replica number from magical pre-computed values
+		(*tiers)[i].SetMagicVirtualReplicaNumber(len(tier.Targets))
 
 		// Populate ratio counters per tier
 		distCounts.Set(tier.Name, new(expvar.Map).Init())
@@ -568,8 +570,9 @@ type Tier struct {
 	Hash    *consistent.Consistent `json:"-"`
 	Shadows map[string]string      `json:"shadows"`
 	// map[target]map[sample host]map[sample metric name]last dispatched
-	Mappings    map[string]map[string]map[string]int64 `json:"routes"`
-	Connections map[string]net.Conn                    `json:"connections,nil"`
+	Mappings        map[string]map[string]map[string]int64 `json:"routes"`
+	Connections     map[string]net.Conn                    `json:"connections,nil"`
+	VirtualReplicas int                                    `json:"virtual_replicas"`
 }
 
 func (t *Tier) Lookup(name string) (string, error) {
@@ -579,6 +582,13 @@ func (t *Tier) Lookup(name string) (string, error) {
 	}
 	target := t.Shadows[shadow_t]
 	return target, nil
+}
+
+func (t *Tier) SetMagicVirtualReplicaNumber(i int) {
+	magics := []int{20, 20, 90, 96, 58, 18, 19, 17, 34, 64, 93, 100, 11, 100, 100, 98, 76, 84, 4, 4, 4, 97, 4, 4, 4, 74, 84, 83, 52, 83, 83, 91, 100, 10, 94, 95, 94, 93, 93, 99, 100, 33, 33, 33, 32, 34, 60, 31, 52, 32, 33, 33, 44, 44, 44, 33, 33, 33, 33, 33, 17, 17, 44, 44, 58, 60, 44, 60, 44, 44, 44, 44, 66, 65, 62, 62, 62, 54, 54, 52, 52, 52, 52, 52, 52, 51, 51, 52, 52, 52, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51}
+	number := magics[i]
+	t.VirtualReplicas = number
+	t.Hash.NumberOfReplicas = number
 }
 
 var (

@@ -223,6 +223,54 @@ func TestSendTiers(t *testing.T) {
 	}
 }
 
+func TestVirtualReplicasMagic(t *testing.T) {
+	// Setup tiers
+	tierConfig := make(map[string]coco.TierConfig)
+	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:25811", "127.0.0.1:25812", "127.0.0.1:25813"}}
+	tierConfig["b"] = coco.TierConfig{Targets: []string{"127.0.0.1:25821", "127.0.0.1:25822", "127.0.0.1:25823"}}
+	tierConfig["c"] = coco.TierConfig{Targets: []string{"127.0.0.1:25831", "127.0.0.1:25832", "127.0.0.1:25833"}}
+
+	var tiers []coco.Tier
+	for k, v := range tierConfig {
+		tier := coco.Tier{Name: k, Targets: v.Targets}
+		tiers = append(tiers, tier)
+	}
+
+	// Setup Send
+	filtered := make(chan collectd.Packet)
+	go coco.Send(&tiers, filtered)
+
+	// Setup Api
+	apiConfig := coco.ApiConfig{
+		Bind: "127.0.0.1:26840",
+	}
+	blacklisted := map[string]map[string]int64{}
+	go coco.Api(apiConfig, &tiers, &blacklisted)
+	poll(t, apiConfig.Bind)
+
+	// Fetch exposed expvars
+	resp, err := http.Get("http://127.0.0.1:26840/tiers")
+	if err != nil {
+		t.Fatalf("HTTP GET failed: %s", err)
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	//var result []coco.Tier
+	var result []map[string]interface{}
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		t.Errorf("Error when decoding JSON %+v.", err)
+		t.Errorf("Response body: %s", string(body))
+		t.FailNow()
+	}
+
+	for _, tier := range result {
+		if tier["virtual_replicas"] == nil {
+			t.Errorf("tier '%s' doesn't expose virtual replicas", tier["name"])
+		}
+		t.Logf("tier '%s' has %.0f virtual replicas", tier["name"], tier["virtual_replicas"])
+	}
+}
+
 func TestTierLookup(t *testing.T) {
 	// Setup sender
 	tierConfig := make(map[string]coco.TierConfig)
@@ -385,7 +433,7 @@ func TestMeasureDistributionSummaryStats(t *testing.T) {
 		tiers = append(tiers, tier)
 	}
 
-	// Setup Listen
+	// Setup Api
 	apiConfig := coco.ApiConfig{
 		Bind: "127.0.0.1:26810",
 	}
