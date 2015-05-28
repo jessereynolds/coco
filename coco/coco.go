@@ -217,6 +217,7 @@ func buildTiers(tiers *[]Tier) {
 				}
 				(*tiers)[i].Connections[t] = conn
 				(*tiers)[i].Mappings[t] = make(map[string]map[string]int64)
+				// Setup a shadow mapping so we get a more even hash distribution
 				shadow_t := string(it)
 				(*tiers)[i].Shadows[shadow_t] = t
 				(*tiers)[i].Hash.Add(shadow_t)
@@ -253,11 +254,10 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet) {
 		packet := <-filtered
 		for _, tier := range *tiers {
 			// Get the target we should forward the packet to
-			shadow_t, err := tier.Hash.Get(packet.Hostname)
+			target, err := tier.Lookup(packet.Hostname)
 			if err != nil {
 				log.Fatal(err)
 			}
-			target := tier.Shadows[shadow_t]
 
 			// Update metadata
 			name := MetricName(packet)
@@ -411,15 +411,13 @@ func TierLookup(params martini.Params, req *http.Request, tiers *[]Tier) []byte 
 		result := map[string]string{}
 
 		for _, tier := range *tiers {
-			shadow_t, err := tier.Hash.Get(name)
+			target, err := tier.Lookup(name)
 			if err != nil {
 				defer func() {
 					errorCounts.Add("lookup.hash.get", 1)
 					log.Printf("error: api: %s: %+v\n", name, err)
 				}()
 			}
-			target := tier.Shadows[shadow_t]
-			// Track when we've successfully looked up a tier.
 			defer func() {
 				lookupCounts.Add(tier.Name, 1)
 			}()
@@ -572,6 +570,15 @@ type Tier struct {
 	// map[target]map[sample host]map[sample metric name]last dispatched
 	Mappings    map[string]map[string]map[string]int64 `json:"routes"`
 	Connections map[string]net.Conn                    `json:"connections,nil"`
+}
+
+func (t *Tier) Lookup(name string) (string, error) {
+	shadow_t, err := t.Hash.Get(name)
+	if err != nil {
+		return "", err
+	}
+	target := t.Shadows[shadow_t]
+	return target, nil
 }
 
 var (

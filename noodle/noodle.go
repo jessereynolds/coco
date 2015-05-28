@@ -51,7 +51,7 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 	m.Get("/data/:hostname/(.+)", func(params martini.Params, req *http.Request) []byte {
 		for _, tier := range *tiers {
 			// Lookup the hostname in the tier's hash. Work out where we should proxy to.
-			shadow_t, err := tier.Hash.Get(params["hostname"])
+			target, err := tier.Lookup(params["hostname"])
 			if err != nil {
 				defer func() {
 					fmt.Printf("%+v\n", errorCounts)
@@ -59,7 +59,6 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 				}()
 				return errorJSON(err)
 			}
-			target := tier.Shadows[shadow_t]
 
 			// Construct the URL, and do the GET
 			var host string
