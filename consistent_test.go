@@ -22,7 +22,7 @@ func TestVariancePermutations(t *testing.T) {
 	}
 	hosts := strings.Split(string(lines), "\n")
 
-	maxSites := 50
+	maxSites := 100
 	maxReplicas := 100
 
 	for s := 2; s <= maxSites; s++ {
