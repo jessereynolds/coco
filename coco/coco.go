@@ -584,6 +584,26 @@ func (t *Tier) Lookup(name string) (string, error) {
 	return target, nil
 }
 
+/*
+SetMagicVirtualReplicaNumber sets the number of virtual replicas on the hash.
+
+Pass it the number of targets in a tier, and it looks up the optimal number of
+virtual replicas in the table of magic numbers and uses that on the hash.
+
+The magic numbers are determined from the results output in consistent_test.go.
+
+There are problems with this approach:
+
+ - You can't change the number of virtual replicas on the hash after you've
+   added sites to the hash.
+ - If the number of connections actually established is different to the number
+   of virtual replicas we set on the hash, we could get poor hashing performance.
+
+For example, if you tell SetMagicVirtualReplicaNumber you have 12 targets and
+successfully connect to all of them on boot, your magic number will be 11. But
+if you can't connect to even one of them, your magic number will be 100, which
+will provide worse hashing performance.
+*/
 func (t *Tier) SetMagicVirtualReplicaNumber(i int) {
 	magics := []int{20, 20, 90, 96, 58, 18, 19, 17, 34, 64, 93, 100, 11, 100, 100, 98, 76, 84, 4, 4, 4, 97, 4, 4, 4, 74, 84, 83, 52, 83, 83, 91, 100, 10, 94, 95, 94, 93, 93, 99, 100, 33, 33, 33, 32, 34, 60, 31, 52, 32, 33, 33, 44, 44, 44, 33, 33, 33, 33, 33, 17, 17, 44, 44, 58, 60, 44, 60, 44, 44, 44, 44, 66, 65, 62, 62, 62, 54, 54, 52, 52, 52, 52, 52, 52, 51, 51, 52, 52, 52, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51}
 	number := magics[i]
