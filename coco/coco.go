@@ -34,7 +34,6 @@ func determineProperties(sizes []int) *expvar.Map {
 		mean := float64(sum) / float64(length)
 
 		// Pack them into an expvar Map
-		props := new(expvar.Map).Init()
 		mine := new(expvar.Int)
 		mine.Set(int64(min))
 		props.Set("min", mine)
