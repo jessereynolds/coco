@@ -28,7 +28,6 @@ func extract(data map[string]interface{}, params Params) (series interface{}, me
 			if params.Debug {
 				fmt.Printf("Series: %+v\n", data)
 			}
-			fmt.Printf("Series: %+v\n", data)
 			series = nil
 			err = errors.New("Series not found in JSON")
 		}
