@@ -106,6 +106,55 @@ func TestFetch(t *testing.T) {
 	}
 }
 
+// Test returned data includes target routing metadata
+func TestFetchHasTargetMetadata(t *testing.T) {
+	go MockVisage()
+
+	// Setup Fetch
+	fetchConfig := coco.FetchConfig{
+		Bind:         "127.0.0.1:26084",
+		ProxyTimeout: *new(coco.Duration),
+		RemotePort:   "29292",
+	}
+	fetchConfig.ProxyTimeout.UnmarshalText([]byte("3s"))
+
+	tierConfig := make(map[string]coco.TierConfig)
+	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:25887"}}
+
+	var tiers []coco.Tier
+	for k, v := range tierConfig {
+		tier := coco.Tier{Name: k, Targets: v.Targets}
+		tiers = append(tiers, tier)
+	}
+
+	go noodle.Fetch(fetchConfig, &tiers)
+
+	poll(t, fetchConfig.Bind)
+
+	// Test
+	params := visage.Params{
+		Endpoint: fetchConfig.Bind,
+		Host:     "highest",
+		Plugin:   "load",
+		Instance: "load",
+		Ds:       "value",
+		Window:   3 * time.Hour,
+	}
+
+	window, metadata, err := visage.FetchWithMetadata(params)
+	t.Logf("window: %+v\n", window)
+	t.Logf("metadata: %+v\n", metadata)
+	if err != nil {
+		t.Fatalf("Error when fetching Visage data: %s\n", err)
+	}
+
+	for _, k := range []string{"target", "host", "url"} {
+		if metadata[k] == "" {
+			t.Errorf("Couldn't find key %s in metadata: %+v", k, metadata)
+		}
+	}
+}
+
 // Test a bad fetch results in an error
 func TestFetchWithFailure(t *testing.T) {
 	go MockVisage()

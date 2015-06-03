@@ -68,7 +68,6 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 			} else {
 				host = strings.Split(target, ":")[0]
 			}
-			fmt.Println("host", host)
 			url := "http://" + host + req.RequestURI
 			client := &http.Client{Timeout: fetch.Timeout()}
 			resp, err := client.Get(url)
@@ -90,6 +89,25 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 				return errorJSON(err)
 			}
 
+			// Stuff in metadata about the proxied request
+			meta := map[string]string{
+				"host":   host,
+				"target": target,
+				"url":    url,
+			}
+			var data map[string]interface{}
+			err = json.Unmarshal(body, &data)
+			if err != nil {
+				defer func() { errorCounts.Add("fetch.json.unmarshal", 1) }()
+				return errorJSON(err)
+			}
+			data["_meta"] = meta
+			bm, err := json.Marshal(data)
+			if err != nil {
+				defer func() { errorCounts.Add("fetch.json.marshal", 1) }()
+				return errorJSON(err)
+			}
+
 			// Track metrics for a successful proxy request
 			defer func() {
 				reqCounts.Add(target, 1) // the target in the hash we proxied to
@@ -99,8 +117,8 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 				tierCounts.Add(tier.Name, 1)
 			}()
 
-			// return the body
-			return body
+			// return the body with metadata
+			return bm
 		}
 
 		// TODO(lindsay): Provide a fallback response if there is no data available

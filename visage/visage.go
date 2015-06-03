@@ -22,12 +22,13 @@ type Params struct {
 	Debug    bool
 }
 
-func extract(data map[string]interface{}, params Params) (series interface{}, err error) {
+func extract(data map[string]interface{}, params Params) (series interface{}, meta map[string]interface{}, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if params.Debug {
 				fmt.Printf("Series: %+v\n", data)
 			}
+			fmt.Printf("Series: %+v\n", data)
 			series = nil
 			err = errors.New("Series not found in JSON")
 		}
@@ -37,9 +38,11 @@ func extract(data map[string]interface{}, params Params) (series interface{}, er
 		err = errors.New(val.(string))
 	} else {
 		series = data[params.Host].(map[string]interface{})[params.Plugin].(map[string]interface{})[params.Instance].(map[string]interface{})[params.Ds].(map[string]interface{})["data"]
+		fmt.Printf("%+v\n", data["_meta"])
+		meta = data["_meta"].(map[string]interface{})
 	}
 
-	return series, err
+	return series, meta, err
 }
 
 // Fetch queries Visage and returns an array of numerical metrics
@@ -75,7 +78,7 @@ func Fetch(params Params) ([]float64, error) {
 		return make([]float64, 0), err
 	}
 
-	series, err := extract(data, params)
+	series, _, err := extract(data, params)
 	if err != nil {
 		return make([]float64, 0), err
 	}
@@ -92,4 +95,62 @@ func Fetch(params Params) ([]float64, error) {
 	}
 
 	return slice, nil
+}
+
+// Fetch queries Visage and returns an array of numerical metrics
+func FetchWithMetadata(params Params) ([]float64, map[string]string, error) {
+	// Construct the path
+	parts := []string{"http:/", params.Endpoint, "data", params.Host, params.Plugin, params.Instance}
+	path := strings.Join(parts, "/")
+
+	// Construct the parameters
+	query := url.Values{}
+	start := strconv.Itoa(int(time.Now().Unix() - int64(params.Window.Seconds())))
+	query.Add("start", start)
+
+	// Construct the URL
+	url := path + "?" + query.Encode()
+
+	if params.Debug {
+		fmt.Printf("URL: %s\n", url)
+	}
+	// Make the request
+	resp, err := http.Get(url)
+	if err != nil {
+		panic(err)
+	}
+
+	// Read the response
+	body, err := ioutil.ReadAll(resp.Body)
+
+	// Map the data into an interface, so we can handle arbitrary data types
+	var data map[string]interface{}
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		return make([]float64, 0), make(map[string]string), err
+	}
+
+	series, meta, err := extract(data, params)
+	if err != nil {
+		return make([]float64, 0), make(map[string]string), err
+	}
+
+	// Iterate through all the values, drop ones that aren't float64s
+	values := series.([]interface{})
+	slice := []float64{}
+	for _, v := range values {
+		if vf, ok := v.(float64); ok {
+			slice = append(slice, vf)
+		}
+	}
+
+	// Iterate through all the meta keys, converting values to strings
+	metadata := map[string]string{}
+	for k, v := range meta {
+		if vs, ok := v.(string); ok {
+			metadata[k] = vs
+		}
+	}
+
+	return slice, metadata, nil
 }
