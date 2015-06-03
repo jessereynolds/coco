@@ -57,7 +57,7 @@ func TestFilterBlacklistsSamples(t *testing.T) {
 	}
 	raw := make(chan collectd.Packet)
 	filtered := make(chan collectd.Packet)
-	blacklist := make(chan coco.BlacklistItem)
+	blacklist := make(chan coco.BlacklistItem, 1000)
 	go coco.Filter(config, raw, filtered, blacklist)
 
 	count := 0
