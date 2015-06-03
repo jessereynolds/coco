@@ -575,6 +575,7 @@ type Tier struct {
 	VirtualReplicas int                                    `json:"virtual_replicas"`
 }
 
+// Lookup maps a name to a target in a tier's hash
 func (t *Tier) Lookup(name string) (string, error) {
 	shadow_t, err := t.Hash.Get(name)
 	if err != nil {
