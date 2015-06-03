@@ -37,8 +37,9 @@ func extract(data map[string]interface{}, params Params) (series interface{}, me
 		err = errors.New(val.(string))
 	} else {
 		series = data[params.Host].(map[string]interface{})[params.Plugin].(map[string]interface{})[params.Instance].(map[string]interface{})[params.Ds].(map[string]interface{})["data"]
-		fmt.Printf("%+v\n", data["_meta"])
-		meta = data["_meta"].(map[string]interface{})
+		if val, ok := data["_meta"]; ok {
+			meta = val.(map[string]interface{})
+		}
 	}
 
 	return series, meta, err
