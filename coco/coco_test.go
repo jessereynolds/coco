@@ -567,6 +567,7 @@ func TestVariance(t *testing.T) {
 	}
 }
 
+/*
 func TestBlacklisted(t *testing.T) {
 	// Setup Filter
 	config := coco.FilterConfig{
@@ -617,3 +618,4 @@ func TestBlacklisted(t *testing.T) {
 		t.Errorf("Expected %d blacklisted metrics, got %d", count, expected)
 	}
 }
+*/
