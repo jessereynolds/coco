@@ -194,8 +194,8 @@ func Blacklist(updates chan BlacklistItem, blacklisted *map[string]map[string]in
 	}
 }
 
-// buildTiers sets up tiers so it's ready to dispatch metrics
-func buildTiers(tiers *[]Tier) {
+// BuildTiers sets up tiers so it's ready to dispatch metrics
+func BuildTiers(tiers *[]Tier) {
 	// Initialise the error counts
 	errorCounts.Add("send.dial", 0)
 
@@ -259,7 +259,7 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet) {
 	// Initialise the error counts
 	errorCounts.Add("send.write", 0)
 
-	buildTiers(tiers)
+	BuildTiers(tiers)
 
 	for {
 		packet := <-filtered

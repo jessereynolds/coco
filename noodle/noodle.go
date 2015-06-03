@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/bulletproofnetworks/marksman/coco/coco"
 	"github.com/go-martini/martini"
-	consistent "github.com/stathat/consistent"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -37,15 +36,7 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 		log.Fatal("fatal: No address configured to bind web server.")
 	}
 
-	for i, tier := range *tiers {
-		(*tiers)[i].Hash = consistent.New()
-		(*tiers)[i].Shadows = make(map[string]string)
-		for it, t := range tier.Targets {
-			shadow_t := string(it)
-			(*tiers)[i].Shadows[shadow_t] = t
-			(*tiers)[i].Hash.Add(shadow_t)
-		}
-	}
+	coco.BuildTiers(tiers)
 
 	m := martini.Classic()
 	m.Get("/data/:hostname/(.+)", func(params martini.Params, req *http.Request) []byte {
