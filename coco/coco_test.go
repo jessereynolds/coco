@@ -57,8 +57,8 @@ func TestFilterBlacklistsSamples(t *testing.T) {
 	}
 	raw := make(chan collectd.Packet)
 	filtered := make(chan collectd.Packet)
-	blacklisted := map[string]map[string]int64{}
-	go coco.Filter(config, raw, filtered, &blacklisted)
+	blacklist := make(chan coco.BlacklistItem)
+	go coco.Filter(config, raw, filtered, blacklist)
 
 	count := 0
 	go func() {
@@ -567,7 +567,6 @@ func TestVariance(t *testing.T) {
 	}
 }
 
-/*
 func TestBlacklisted(t *testing.T) {
 	// Setup Filter
 	config := coco.FilterConfig{
@@ -575,8 +574,12 @@ func TestBlacklisted(t *testing.T) {
 	}
 	raw := make(chan collectd.Packet)
 	filtered := make(chan collectd.Packet)
+	items := make(chan coco.BlacklistItem, 1000000)
+	go coco.Filter(config, raw, filtered, items)
+
+	// Setup blacklist
 	blacklisted := map[string]map[string]int64{}
-	go coco.Filter(config, raw, filtered, &blacklisted)
+	go coco.Blacklist(items, &blacklisted)
 
 	// Setup Api
 	apiConfig := coco.ApiConfig{
@@ -618,4 +621,3 @@ func TestBlacklisted(t *testing.T) {
 		t.Errorf("Expected %d blacklisted metrics, got %d", count, expected)
 	}
 }
-*/

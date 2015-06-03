@@ -155,7 +155,7 @@ func MetricName(packet collectd.Packet) string {
 	return strings.Join(parts, "/")
 }
 
-func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collectd.Packet, blacklisted *map[string]map[string]int64) {
+func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collectd.Packet, blacklist chan BlacklistItem) {
 	// Initialise the error counts
 	errorCounts.Add("filter.unhandled", 0)
 
@@ -176,14 +176,21 @@ func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collect
 			filtered <- packet
 			filterCounts.Add("accepted", 1)
 		} else {
-			/*
-				if (*blacklisted)[packet.Hostname] == nil {
-					(*blacklisted)[packet.Hostname] = make(map[string]int64)
-				}
-				(*blacklisted)[packet.Hostname][name] = time.Now().Unix()
-			*/
+			blacklist <- BlacklistItem{Packet: packet, Time: time.Now().Unix()}
 			filterCounts.Add("rejected", 1)
 		}
+	}
+}
+
+func Blacklist(updates chan BlacklistItem, blacklisted *map[string]map[string]int64) {
+	for {
+		item := <-updates
+		packet := item.Packet
+		name := MetricName(item.Packet)
+		if (*blacklisted)[packet.Hostname] == nil {
+			(*blacklisted)[packet.Hostname] = make(map[string]int64)
+		}
+		(*blacklisted)[packet.Hostname][name] = item.Time
 	}
 }
 
@@ -612,6 +619,11 @@ func (t *Tier) SetMagicVirtualReplicaNumber(i int) {
 	number := magics[i]
 	t.VirtualReplicas = number
 	t.Hash.NumberOfReplicas = number
+}
+
+type BlacklistItem struct {
+	Packet collectd.Packet
+	Time   int64
 }
 
 var (

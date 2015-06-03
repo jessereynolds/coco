@@ -26,6 +26,7 @@ func main() {
 	blacklisted := map[string]map[string]int64{}
 	raw := make(chan collectd.Packet, 1000000)
 	filtered := make(chan collectd.Packet, 1000000)
+	items := make(chan coco.BlacklistItem, 1000000)
 
 	var tiers []coco.Tier
 	for k, v := range config.Tiers {
@@ -40,14 +41,16 @@ func main() {
 	chans := map[string]chan collectd.Packet{
 		"raw":      raw,
 		"filtered": filtered,
+		//"blacklist_items": items,
 	}
 	go coco.Measure(config.Measure, chans, &tiers)
 
 	// Launch components to do the work
 	go coco.Listen(config.Listen, raw)
 	for i := 0; i < 4; i++ {
-		go coco.Filter(config.Filter, raw, filtered, &blacklisted)
+		go coco.Filter(config.Filter, raw, filtered, items)
 	}
+	go coco.Blacklist(items, &blacklisted)
 	go coco.Send(&tiers, filtered)
 	coco.Api(config.Api, &tiers, &blacklisted)
 }
