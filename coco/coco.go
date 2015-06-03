@@ -176,10 +176,12 @@ func Filter(config FilterConfig, raw chan collectd.Packet, filtered chan collect
 			filtered <- packet
 			filterCounts.Add("accepted", 1)
 		} else {
-			if (*blacklisted)[packet.Hostname] == nil {
-				(*blacklisted)[packet.Hostname] = make(map[string]int64)
-			}
-			(*blacklisted)[packet.Hostname][name] = time.Now().Unix()
+			/*
+				if (*blacklisted)[packet.Hostname] == nil {
+					(*blacklisted)[packet.Hostname] = make(map[string]int64)
+				}
+				(*blacklisted)[packet.Hostname][name] = time.Now().Unix()
+			*/
 			filterCounts.Add("rejected", 1)
 		}
 	}
