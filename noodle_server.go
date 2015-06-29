@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/BurntSushi/toml"
-	"github.com/bulletproofnetworks/marksman/coco/coco"
-	"github.com/bulletproofnetworks/marksman/coco/noodle"
+	"github.com/bulletproofnetworks/coco/coco"
+	"github.com/bulletproofnetworks/coco/noodle"
 	"gopkg.in/alecthomas/kingpin.v1"
 	"log"
 )

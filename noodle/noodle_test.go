@@ -2,9 +2,9 @@ package noodle
 
 import (
 	"encoding/json"
-	"github.com/bulletproofnetworks/marksman/coco/coco"
-	"github.com/bulletproofnetworks/marksman/coco/noodle"
-	"github.com/bulletproofnetworks/marksman/coco/visage"
+	"github.com/bulletproofnetworks/coco/coco"
+	"github.com/bulletproofnetworks/coco/noodle"
+	"github.com/bulletproofnetworks/coco/visage"
 	"github.com/go-martini/martini"
 	"io/ioutil"
 	"net"

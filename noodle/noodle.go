@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"expvar"
 	"fmt"
-	"github.com/bulletproofnetworks/marksman/coco/coco"
+	"github.com/bulletproofnetworks/coco/coco"
 	"github.com/go-martini/martini"
 	"io/ioutil"
 	"log"

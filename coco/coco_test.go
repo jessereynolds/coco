@@ -2,7 +2,7 @@ package coco
 
 import (
 	"encoding/json"
-	"github.com/bulletproofnetworks/marksman/coco/coco"
+	"github.com/bulletproofnetworks/coco/coco"
 	collectd "github.com/kimor79/gollectd"
 	"io/ioutil"
 	"math/rand"

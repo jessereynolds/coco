@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/BurntSushi/toml"
-	"github.com/bulletproofnetworks/marksman/coco/coco"
+	"github.com/bulletproofnetworks/coco/coco"
 	collectd "github.com/kimor79/gollectd"
 	"gopkg.in/alecthomas/kingpin.v1"
 	"log"

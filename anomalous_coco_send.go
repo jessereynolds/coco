@@ -38,8 +38,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/bulletproofnetworks/marksman/coco/ks"
-	"github.com/bulletproofnetworks/marksman/coco/visage"
+	"github.com/bulletproofnetworks/coco/ks"
+	"github.com/bulletproofnetworks/coco/visage"
 	"gopkg.in/alecthomas/kingpin.v1"
 	"os"
 )
