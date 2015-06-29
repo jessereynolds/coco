@@ -68,12 +68,6 @@ func Plot(window1 []float64, window2 []float64, max float64, maxi int) {
 	}
 
 	fmt.Fprintf(stdin, "set term dumb\n")
-	/*
-		// Crappy attempt at highlighting anomalous area.
-		//circle := window1[maxi] + math.Abs(window1[maxi] - window2[maxi])
-		//fmt.Printf("window1: %.2f, window2: %.2f, mid: %.2f\n", window1[maxi], window2[maxi], circle)
-		//fmt.Fprintf(stdin, "set object circle at %d, %.2f size 0.5 fc rgb 'gray'\n", maxi, circle)
-	*/
 	fmt.Fprintf(stdin, "plot '-' using 2 title '' with lines, '-' using 2 title '' with lines\n")
 	for i, _ := range window1 {
 		fmt.Fprintf(stdin, "\t%d %.2f\n", i, window1[i])
