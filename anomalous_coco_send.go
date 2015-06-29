@@ -20,8 +20,8 @@ At a high level, the test works like this:
 Example usage:
 
   anomalous_coco_send --host ip-10-101-103-42.ap-southeast-2.compute.internal \
-					  --target 10.101.103.119
-					  --endpoint ***REMOVED***
+					  --target 10.101.103.119 \
+					  --endpoint visage.example.org \
 					  --window 5m
 
 Protips:
