@@ -1,15 +1,15 @@
 package main
 
 import (
-	"log"
 	"github.com/BurntSushi/toml"
+	"github.com/bulletproofnetworks/coco/coco"
+	"github.com/bulletproofnetworks/coco/noodle"
 	"gopkg.in/alecthomas/kingpin.v1"
-	"github.com/bulletproofnetworks/marksman/coco/noodle"
-	"github.com/bulletproofnetworks/marksman/coco/coco"
+	"log"
 )
 
 var (
-	configPath	= kingpin.Arg("config", "Path to coco config").Default("coco.conf").String()
+	configPath = kingpin.Arg("config", "Path to coco config").Default("coco.conf").String()
 )
 
 func main() {
@@ -23,7 +23,7 @@ func main() {
 	}
 
 	var tiers []coco.Tier
-	for k, v := range(config.Tiers) {
+	for k, v := range config.Tiers {
 		tier := coco.Tier{Name: k, Targets: v.Targets}
 		tiers = append(tiers, tier)
 	}

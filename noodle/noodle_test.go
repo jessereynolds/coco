@@ -1,16 +1,16 @@
 package noodle
 
 import (
-	"testing"
-	"github.com/bulletproofnetworks/marksman/coco/coco"
-	"github.com/bulletproofnetworks/marksman/coco/noodle"
-	"github.com/bulletproofnetworks/marksman/coco/visage"
-	"net/http"
-	"io/ioutil"
 	"encoding/json"
-	"net"
-	"time"
+	"github.com/bulletproofnetworks/coco/coco"
+	"github.com/bulletproofnetworks/coco/noodle"
+	"github.com/bulletproofnetworks/coco/visage"
 	"github.com/go-martini/martini"
+	"io/ioutil"
+	"net"
+	"net/http"
+	"testing"
+	"time"
 )
 
 func MockVisage() {
@@ -38,10 +38,12 @@ func MockVisage() {
 }
 
 func poll(t *testing.T, address string) {
-	for i := 0 ; i < 1000 ; i++ {
+	for i := 0; i < 1000; i++ {
 		_, err := net.Dial("tcp", address)
 		t.Logf("Dial %s attempt %d", address, i)
-		if err == nil { break }
+		if err == nil {
+			break
+		}
 		if i == 999 {
 			t.Fatalf("Couldn't establish connection to %s", address)
 		}
@@ -61,18 +63,19 @@ func TestFetch(t *testing.T) {
 
 	// Setup Fetch
 	fetchConfig := coco.FetchConfig{
-		Bind: "127.0.0.1:26082",
-		Timeout: *new(coco.Duration), //.UnmarshalText([]byte("1s")),
-		RemotePort: "29292",
+		Bind:         "127.0.0.1:26082",
+		ProxyTimeout: *new(coco.Duration),
+		RemotePort:   "29292",
 	}
+	fetchConfig.ProxyTimeout.UnmarshalText([]byte("3s"))
 
 	tierConfig := make(map[string]coco.TierConfig)
-	tierConfig["a"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25887"} }
-	tierConfig["b"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25888"} }
-	tierConfig["c"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25889"} }
+	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:25887"}}
+	tierConfig["b"] = coco.TierConfig{Targets: []string{"127.0.0.1:25888"}}
+	tierConfig["c"] = coco.TierConfig{Targets: []string{"127.0.0.1:25889"}}
 
 	var tiers []coco.Tier
-	for k, v := range(tierConfig) {
+	for k, v := range tierConfig {
 		tier := coco.Tier{Name: k, Targets: v.Targets}
 		tiers = append(tiers, tier)
 	}
@@ -87,7 +90,7 @@ func TestFetch(t *testing.T) {
 		Host:     "highest",
 		Plugin:   "load",
 		Instance: "load",
-		Ds:		  "value",
+		Ds:       "value",
 		Window:   3 * time.Hour,
 	}
 
@@ -96,9 +99,58 @@ func TestFetch(t *testing.T) {
 		t.Fatalf("Error when fetching Visage data: %s\n", err)
 	}
 
-	for i, v := range(window) {
-		if (v != 0.0) {
+	for i, v := range window {
+		if v != 0.0 {
 			t.Errorf("Unexpected value: expected %f got %f at %d", 0.0, v, i)
+		}
+	}
+}
+
+// Test returned data includes target routing metadata
+func TestFetchHasTargetMetadata(t *testing.T) {
+	go MockVisage()
+
+	// Setup Fetch
+	fetchConfig := coco.FetchConfig{
+		Bind:         "127.0.0.1:26084",
+		ProxyTimeout: *new(coco.Duration),
+		RemotePort:   "29292",
+	}
+	fetchConfig.ProxyTimeout.UnmarshalText([]byte("3s"))
+
+	tierConfig := make(map[string]coco.TierConfig)
+	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:25887"}}
+
+	var tiers []coco.Tier
+	for k, v := range tierConfig {
+		tier := coco.Tier{Name: k, Targets: v.Targets}
+		tiers = append(tiers, tier)
+	}
+
+	go noodle.Fetch(fetchConfig, &tiers)
+
+	poll(t, fetchConfig.Bind)
+
+	// Test
+	params := visage.Params{
+		Endpoint: fetchConfig.Bind,
+		Host:     "highest",
+		Plugin:   "load",
+		Instance: "load",
+		Ds:       "value",
+		Window:   3 * time.Hour,
+	}
+
+	window, metadata, err := visage.FetchWithMetadata(params)
+	t.Logf("window: %+v\n", window)
+	t.Logf("metadata: %+v\n", metadata)
+	if err != nil {
+		t.Fatalf("Error when fetching Visage data: %s\n", err)
+	}
+
+	for _, k := range []string{"target", "host", "url"} {
+		if metadata[k] == "" {
+			t.Errorf("Couldn't find key %s in metadata: %+v", k, metadata)
 		}
 	}
 }
@@ -109,18 +161,19 @@ func TestFetchWithFailure(t *testing.T) {
 
 	// Setup Fetch
 	fetchConfig := coco.FetchConfig{
-		Bind: "127.0.0.1:26083",
-		Timeout: *new(coco.Duration), //.UnmarshalText([]byte("1s")),
-		RemotePort: "29293",
+		Bind:         "127.0.0.1:26083",
+		ProxyTimeout: *new(coco.Duration),
+		RemotePort:   "29293",
 	}
+	fetchConfig.ProxyTimeout.UnmarshalText([]byte("3s"))
 
 	tierConfig := make(map[string]coco.TierConfig)
-	tierConfig["a"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25887"} }
-	tierConfig["b"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25888"} }
-	tierConfig["c"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25889"} }
+	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:25887"}}
+	tierConfig["b"] = coco.TierConfig{Targets: []string{"127.0.0.1:25888"}}
+	tierConfig["c"] = coco.TierConfig{Targets: []string{"127.0.0.1:25889"}}
 
 	var tiers []coco.Tier
-	for k, v := range(tierConfig) {
+	for k, v := range tierConfig {
 		tier := coco.Tier{Name: k, Targets: v.Targets}
 		tiers = append(tiers, tier)
 	}
@@ -135,7 +188,7 @@ func TestFetchWithFailure(t *testing.T) {
 		Host:     "highest",
 		Plugin:   "load",
 		Instance: "load",
-		Ds:		  "value",
+		Ds:       "value",
 		Window:   3 * time.Hour,
 	}
 
@@ -149,17 +202,18 @@ func TestFetchWithFailure(t *testing.T) {
 func TestTierLookup(t *testing.T) {
 	// Setup Fetch
 	fetchConfig := coco.FetchConfig{
-		Bind: "127.0.0.1:26080",
-		Timeout: *new(coco.Duration), //.UnmarshalText([]byte("1s")),
+		Bind:         "127.0.0.1:26080",
+		ProxyTimeout: *new(coco.Duration),
 	}
+	fetchConfig.ProxyTimeout.UnmarshalText([]byte("3s"))
 
 	tierConfig := make(map[string]coco.TierConfig)
-	tierConfig["a"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25887"} }
-	tierConfig["b"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25888"} }
-	tierConfig["c"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25889"} }
+	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:25887"}}
+	tierConfig["b"] = coco.TierConfig{Targets: []string{"127.0.0.1:25888"}}
+	tierConfig["c"] = coco.TierConfig{Targets: []string{"127.0.0.1:25889"}}
 
 	var tiers []coco.Tier
-	for k, v := range(tierConfig) {
+	for k, v := range tierConfig {
 		tier := coco.Tier{Name: k, Targets: v.Targets}
 		tiers = append(tiers, tier)
 	}
@@ -181,7 +235,7 @@ func TestTierLookup(t *testing.T) {
 		t.Fatalf("Error when decoding JSON %+v. Response body: %s", err, string(body))
 	}
 
-	for k, v := range(tierConfig) {
+	for k, v := range tierConfig {
 		if result[k] != v.Targets[0] {
 			t.Errorf("Couldn't find tier %s in response: %s", k, string(body))
 		}
@@ -192,15 +246,16 @@ func TestTierLookup(t *testing.T) {
 func TestExpvars(t *testing.T) {
 	// Setup Fetch
 	fetchConfig := coco.FetchConfig{
-		Bind: "127.0.0.1:26081",
-		Timeout: *new(coco.Duration), //.UnmarshalText([]byte("1s")),
+		Bind:         "127.0.0.1:26081",
+		ProxyTimeout: *new(coco.Duration),
 	}
+	fetchConfig.ProxyTimeout.UnmarshalText([]byte("3s"))
 
 	tierConfig := make(map[string]coco.TierConfig)
-	tierConfig["a"] = coco.TierConfig{ Targets: []string{"127.0.0.1:25887"} }
+	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:25887"}}
 
 	var tiers []coco.Tier
-	for k, v := range(tierConfig) {
+	for k, v := range tierConfig {
 		tier := coco.Tier{Name: k, Targets: v.Targets}
 		tiers = append(tiers, tier)
 	}

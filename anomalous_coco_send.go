@@ -13,15 +13,15 @@ At a high level, the test works like this:
 
  - Query Visage to get a window of data.
  - Bisect the window into two equal length windows.
- - Sort the data points in each window in ascending order.
+ - Sort the data points in each window in ascending numerical order of the value.
  - Find the D-statistic - the maximum vertical deviation between the two series.
- - Test if the D-statistic is greater than the user specified error rate.
+ - Test if the D-statistic is greater than the user specified acceptable deviation.
 
 Example usage:
 
   anomalous_coco_send --host ip-10-101-103-42.ap-southeast-2.compute.internal \
-					  --rrd 10.101.103.119
-					  --endpoint ***REMOVED***
+					  --target 10.101.103.119 \
+					  --endpoint visage.example.org \
 					  --window 5m
 
 Protips:
@@ -38,10 +38,10 @@ package main
 
 import (
 	"fmt"
-	"os"
+	"github.com/bulletproofnetworks/coco/ks"
+	"github.com/bulletproofnetworks/coco/visage"
 	"gopkg.in/alecthomas/kingpin.v1"
-	"github.com/bulletproofnetworks/marksman/coco/visage"
-	"github.com/bulletproofnetworks/marksman/coco/ks"
+	"os"
 )
 
 // handleErrors performs global error handling for unhandled errors
@@ -54,12 +54,12 @@ func handleErrors() {
 }
 
 var (
-	host 		= kingpin.Flag("host", "The host to query metrics from").Required().String()
-	rrd         = kingpin.Flag("rrd", "The storage node to test").Required().String()
-	endpoint	= kingpin.Flag("endpoint", "Visage endpoint to query").Required().String()
-	deviation	= kingpin.Flag("maximum-deviation", "Acceptable deviation for KS test").Default("10.0").Float()
-	window		= kingpin.Flag("window", "Window of time to analyse").Default("120s").Duration()
-	debug       = kingpin.Flag("debug", "Enable verbose output (default false)").Bool()
+	host      = kingpin.Flag("host", "The host to query metrics from").Required().String()
+	target    = kingpin.Flag("target", "The storage node to test").Required().String()
+	endpoint  = kingpin.Flag("endpoint", "Visage endpoint to query").Required().String()
+	deviation = kingpin.Flag("maximum-deviation", "Acceptable deviation for KS test").Default("10.0").Float()
+	window    = kingpin.Flag("window", "Window of time to analyse").Default("120s").Duration()
+	debug     = kingpin.Flag("debug", "Enable verbose output (default false)").Bool()
 )
 
 func main() {
@@ -68,7 +68,7 @@ func main() {
 
 	if *debug {
 		fmt.Println("Host:", *host)
-		fmt.Println("RRD:", *rrd)
+		fmt.Println("Target:", *target)
 		fmt.Println("Endpoint:", *endpoint)
 		fmt.Printf("Maximum deviation: %.1f\n", *deviation)
 		fmt.Println("Window:", *window)
@@ -83,8 +83,8 @@ func main() {
 		Endpoint: *endpoint,
 		Host:     *host,
 		Plugin:   "curl_json-coco",
-		Instance: "operations-send-" + *rrd + ":25826",
-		Ds:		  "value",
+		Instance: "operations-send-" + *target + ":25826",
+		Ds:       "value",
 		Window:   *window,
 		Debug:    *debug,
 	}
@@ -99,9 +99,9 @@ func main() {
 		os.Exit(3)
 	}
 
- 	// Bisect the window into two equal length windows.
+	// Bisect the window into two equal length windows.
 	window1, window2 := ks.BisectAndSortWindow(window)
- 	// Find the D-statistic
+	// Find the D-statistic
 	max, maxIndex := ks.FindMaxDeviation(window1, window2)
 
 	if *debug {
@@ -111,6 +111,7 @@ func main() {
 		fmt.Println(window2)
 		fmt.Println("Max, max index:")
 		fmt.Println(max, maxIndex)
+		fmt.Printf("Window sizes: window 1: %d, window 2: %d\n", len(window1), len(window2))
 	}
 
 	// Plot the data on the console
