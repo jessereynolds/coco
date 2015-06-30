@@ -437,4 +437,4 @@ that track the internal behaviour of each server:
 
 All contributions are welcome: ideas, patches, documentation, bug reports, questions, and complaints.
 
-Coco is MIT licensed.
+Coco is [MIT licensed](https://github.com/bulletproofnetworks/coco/blob/master/LICENSE).
