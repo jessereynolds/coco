@@ -8,11 +8,14 @@ scale your metrics storage infrastructure horizontally.
 
 There are two parts to Coco:
 
- - **Coco**, a collectd network server that consistently hashes incoming metrics.
- - **Noodle**, a Visage-compatible HTTP proxy that looks up metrics across
-   storage backends.
+ - **Coco**, a collectd network server that consistently hashes incoming metrics to a ring of storage targets.
+ - **Noodle**, a Visage-compatible HTTP proxy that looks up metrics across storage targets.
 
-## Getting started
+## Why Coco?
+
+**FIXME: explain the rationale**
+
+## Quick start
 
 **FIXME: add instructions on downloading released binaries**
 
@@ -20,12 +23,224 @@ There are two parts to Coco:
 
 1. Edit `coco.conf` to taste (use `coco.sample.conf` as a base).
 1. Start the daemon with `coco coco.conf`.
-1. Push collectd packets to the bind address in the `[listen]` section in
-   `coco.conf`. You can do this with
-   [`collectd-tg`](https://collectd.org/documentation/manpages/collectd-tg.1.shtml)
-   from the collectd project (e.g. `collectd-tg -d localhost -H 1500 -p 50`), or
-   by pointing a local copy of collectd at Coco's bind address.
-1. Dump out the entire state of where metrics are being hashed:
+1. Push collectd packets to the bind address in the `[listen]` section in `coco.conf`. You can do this with [`collectd-tg`](https://collectd.org/documentation/manpages/collectd-tg.1.shtml):
+
+   ```
+   collectd-tg -d localhost -H 1500 -p 50
+   ```
+
+   Alternatively you can point a local copy of collectd at Coco:
+
+   ```
+   LoadPlugin network
+   <Plugin "network">
+     Server "127.0.0.1"
+   </Plugin>
+   ```
+
+### Noodle
+
+1. Edit `coco.conf` to taste (use `coco.sample.conf` as a base).
+1. Start the daemon with `noodle coco.conf`.
+1. Make a request to Noodle:
+
+   ```
+   $ curl http://localhost:9080/data/host.example.org/load/load
+   {
+     "_meta": {
+       "host": "10.1.1.113",
+       "target": "10.1.1.113:25826",
+       "url": "http://10.1.1.113/data/host.example.org/load/load"
+     },
+     "host.example.org": {
+       "load": {
+         "load": {
+           "longterm": {
+             "data": [
+               0.18349999999999997,
+               ...
+             }
+           }
+         }
+       }
+     }
+   }
+   ```
+
+   This will make Noodle proxy the request to the target that owns the metric,
+   per the consistent hash.
+
+## Using
+
+Both Coco and Noodle are configured with a [TOML](https://github.com/toml-lang/toml) formatted config file, passed as the first argument:
+
+```
+coco coco.conf &
+noodle noodle.conf
+```
+
+Conceptually, Coco is a pipeline of components that work together to distribute metrics. Metrics flow from Listen, to Filter, to Send:
+
+ - Listen takes collectd network packets and breaks them into individual samples.
+ - Filter drops samples that match a blacklist regex.
+ - Send distributes the remaining samples to the storage targets.
+
+Coco also has API and Measure components:
+
+ - API exposes Coco's internal state, and provides metrics about how Coco is performing.
+ - Measure periodically samples queue lengths and calculates summary statistics for host-to-metric distributions
+
+Noodle is a single component, Fetch, which proxies requests for metrics to storage targets.
+
+### Tiers
+
+Tiers are a core concept in Coco and Noodle.
+
+A tier is a group of storage targets that metrics can be dispatched to. Tiers let you distribute the same metrics to multiple  storage infrastructures in parallel.
+
+This gives you the flexibility to compose a metric storage platform with multiple storage tiers with different retention policies, storage technologies, and performance characteristics.
+
+When Coco dispatches a sample, it will iterate through all tiers, and for each:
+
+ - Hash the sample to a target in that tier.
+ - Dispatch that sample to the hashed target in the tier.
+
+Currently Noodle will only fetch metrics from the first configure tier. Future work on Noodle will be focused on supporting fetching from multiple tiers with different fetch strategies. We will make fetch happen.
+
+### Configuring
+
+Coco and Noodle's configuration file contains sections for controlling their respective components. Not all components have configuration.
+
+#### Tiers
+
+Tier configuration is shared between Coco and Noodle.
+
+A tier must have a name, as specified after the `.` in the tier section name:
+
+```
+[tiers.short]
+```
+
+Under each tier, there is a single option:
+
+ - `targets`: an array of addresses of storage targets
+
+At least one tier must be configured. Coco and Noodle will error out on boot if no tiers are configured.
+
+**You must ensure that Coco and Noodle have exactly the same tier configuration.**
+
+If the tier configuration differs between Coco and Noodle, you will dispatch metrics to different hosts than you fetch them from.
+
+Example configuration:
+
+```
+[tiers]
+
+[tiers.short]
+targets = [ "alice:25826", "bob:25826" ]
+
+[tiers.mid]
+targets = [ "carol:25826", "dan:25826" ]
+```
+
+This configuration is the perfect candidate for generation from a configuration management tool, or derived from Consul or etcd with confd.
+
+#### Listen
+
+Used by Coco.
+
+Options:
+
+ - `bind`: address to listen for incoming collectd packets.
+ - `typesdb`: path to collectd's types.db, used to decode the collectd packet payload into the correct value types.
+
+Example configuration:
+
+```
+[listen]
+bind = "0.0.0.0:25826"
+typesdb = "/usr/share/collectd/types.db"
+```
+
+#### Filter
+
+Used by Coco.
+
+Options:
+
+ - `blacklist`: a regex applied to all samples to determine if they should be dropped before dispatch to a storage target.
+
+Example configuration:
+
+```
+[filter]
+blacklist = "/(vmem|irq|entropy|users)/"
+```
+
+#### API
+
+Used by Coco.
+
+Options:
+
+ - `bind`: address to serve HTTP requests.
+
+Example configuration:
+
+```
+[api]
+bind = "0.0.0.0:9090"
+```
+
+#### Measure
+
+Used by Coco.
+
+Options:
+
+ - `interval`: how often to generate host-to-metric summary statistics and measure queue lengths.
+
+Example configuration:
+
+```
+[measure]
+interval = "5s"
+```
+
+#### Fetch
+
+Used by Noodle.
+
+Options:
+
+ - `bind`: address to serve HTTP requests.
+ - `proxy_timeout`: timeout for HTTP requests to storage targets.
+
+Example configuration:
+
+```
+[fetch]
+bind = "0.0.0.0:9080"
+proxy_timeout = "10s"
+```
+
+### Querying
+
+You can poke at Coco and Noodle to get information on how they see the world.
+
+For Coco:
+
+ - `/lookup` shows which storage targets in each tier are responsible for a given host's metrics, as specified by the `?name` parameter:
+
+   ```
+   $ curl http://127.0.0.1:9080/lookup?name=foo
+   {
+     "shortterm": "10.1.1.158:25826",
+     "midterm": "10.2.2.40:25826"
+   }
+   ```
+
+ - `/tiers` dumps out the running state for all tiers:
 
    ```
    $ curl http://127.0.0.1:9090/tiers
@@ -55,13 +270,21 @@ There are two parts to Coco:
    ]
    ```
 
-1. Perform a lookup to see how the hash function distributes hosts across the ring:
+ - `/blacklisted` returns all metrics that have been dropped by the Filter, and when they were last seen:
 
    ```
-   $ curl http://127.0.0.1:9080/lookup?name=foo
+   $ curl http://127.0.0.1:9090/blacklisted
    {
-     "shortterm": "10.1.1.158:25826",
-     "midterm": "10.2.2.40:25826"
+     "alice.example.org": {
+       "entropy/entropy": 1435639791,
+       "irq/irq/0": 1435639791,
+       "irq/irq/1": 1435639791,
+       "irq/irq/12": 1435639791,
+       "irq/irq/14": 1435639791,
+       "irq/irq/15": 1435639791,
+       "irq/irq/24": 1435639791,
+       ...
+     }
    }
    ```
 
@@ -163,11 +386,15 @@ When Coco boots, it attempts to establish a UDP connection to a target. If Coco 
 Coco ships some monitoring checks to give you insight into how Coco is running:
 
  - `anomalous_coco_send` checks if Coco's send behaviour has changed over a time period.
- - `anomalous_coco_errors` checks if Coco's error rate has changed over a time period.
+ - `anomalous_coco_errors` checks if Coco's send error rate has changed over a time period.
 
-These checks use the Kolmogorov-Smirnov statistical test to check if there is a change in the distribution of the data over time. The KS-test is a computationally cheap method of testing if rates changes over a window of time.
+These checks use the [Kolmogorov-Smirnov](http://www.physics.csbsju.edu/stats/KS-test.html) statistical test to check if there is a change in the distribution of the data over time. The KS-test is a computationally cheap method of testing if rates changes over a window of time.
 
 Both of these checks assume you're using collectd to gather Coco's expvar metrics, and serving them up with [Visage](http://visage.io).
+
+## Help
+
+[Create a GitHub Issue](https://github.com/bulletproofnetworks/coco/issues/new?labels=Question) and we'll do our best to answer your question.
 
 ## Developing
 
@@ -205,3 +432,9 @@ that track the internal behaviour of each server:
 
  - **Coco**: http://localhost:9090/debug/vars
  - **Noodle**: http://localhost:9080/debug/vars
+
+## Contributing
+
+All contributions are welcome: ideas, patches, documentation, bug reports, questions, and complaints.
+
+Coco is MIT licensed.
