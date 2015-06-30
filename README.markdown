@@ -54,26 +54,18 @@ There are two parts to Coco:
      ...
    ]
    ```
-1. Perform a lookup to see how the hash function distributes hosts across the circle:
+
+1. Perform a lookup to see how the hash function distributes hosts across the ring:
 
    ```
-   $ curl http://127.0.0.1:9090/lookup?name=foo
+   $ curl http://127.0.0.1:9080/lookup?name=foo
    {
      "shortterm": "10.1.1.158:25826",
      "midterm": "10.2.2.40:25826"
    }
    ```
 
-
-### Noodle
-
-1. Edit `coco.conf` to taste (use `coco.sample.conf` as a base).
-1. Start the daemon with `noodle coco.conf`.
-1. Make requests to Noodle: http://localhost:9080/data/host.example.org/load/load
-   This will make Noodle proxy the request to the server that owns the metric,
-   per the consistent hash.
-
-## Using
+## Operationalising
 
 ### How do I deploy?
 
@@ -89,57 +81,57 @@ Both Coco and Noodle expose internal counters and gauges about the operations th
 
 Both tools expose metrics at `/debug/vars`.
 
-Given you're already using collectd to gather metrics, you can use collectd's curl_json plugin to periodically pull these metrics out of Coco and Noodle.
+Given you're already using collectd to gather metrics, you can use collectd's [curl_json plugin](https://collectd.org/wiki/index.php/Plugin:cURL-JSON) to periodically pull these metrics out of Coco and Noodle.
 
 There are sample collectd configuration files under `etc/collectd/` in the source.
 
 #### Coco
 
-Coco exposes many metrics about what it's doing. Here is a description of what those metrics are:
+Coco exposes many metrics about what it's doing. This is what those metrics are:
 
-| Name | Description |
-| ---- | ----------- |
-| `coco.listen.raw` |  Number of collectd packets Coco has pulled off the wire. |
-| `coco.listen.decoded` | Number of samples decoded from the collectd packet payload. |
-| `coco.filter.accepted` | Number of packets accepted for dispatch to storage target. |
-| `coco.filter.rejected` | Number of packets rejected for dispatch to storage target. |
-| `coco.send.{{ target }}` | Number of packets dispatched to a storage target. |
-| `coco.queues.raw` | Number of samples dispatched from Listen, queued for processing by Filter. |
-| `coco.queues.filtered` | Number of samples dispatched from Filter, queued for processing by Send. |
-| `coco.lookup.{{ tier }}` | Number of times the tier has been returned in a lookup query at `/lookup`. |
-| `coco.hash.hosts.{{ target }}` | Number of hosts hashed to each target. |
-| `coco.errors.fetch.receive` | Unsuccessful collectd packet decoding in Listen. |
-| `coco.errors.filter.unhandled` | Unhandled panics in Filter. |
-| `coco.errors.lookup.hash.get` | Unsuccessful hash lookups for a name. There should be a corresponding log entry for every counter increment. |
-| `coco.errors.send.dial` | Unsuccessful connection to target on boot. There should be a corresponding log entry for every counter increment. |
-| `coco.errors.send.write` | Unsuccessful dispatch of sample to a target. |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| `coco.listen.raw` | Counter | Number of collectd packets Coco has pulled off the wire. |
+| `coco.listen.decoded` | Counter | Number of samples decoded from the collectd packet payload. |
+| `coco.filter.accepted` | Counter | Number of packets accepted for dispatch to storage target. |
+| `coco.filter.rejected` | Counter | Number of packets rejected for dispatch to storage target. |
+| `coco.send.{{ target }}` | Counter | Number of packets dispatched to a storage target. |
+| `coco.queues.raw` | Counter | Number of samples dispatched from Listen, queued for processing by Filter. |
+| `coco.queues.filtered` | Counter | Number of samples dispatched from Filter, queued for processing by Send. |
+| `coco.lookup.{{ tier }}` | Counter | Number of times the tier has been returned in a lookup query at `/lookup`. |
+| `coco.hash.hosts.{{ target }}` | Counter | Number of hosts hashed to each target. |
+| `coco.errors.fetch.receive` | Counter | Unsuccessful collectd packet decoding in Listen. |
+| `coco.errors.filter.unhandled` | Counter | Unhandled panics in Filter. |
+| `coco.errors.lookup.hash.get` | Counter | Unsuccessful hash lookups for a name. There should be a corresponding log entry for every counter increment. |
+| `coco.errors.send.dial` | Counter | Unsuccessful connection to target on boot. There should be a corresponding log entry for every counter increment. |
+| `coco.errors.send.write` | Counter | Unsuccessful dispatch of sample to a target. |
 
 There is also a bunch of keys under `coco.hash.metrics_per_host.{{ tier }}.{{ target }}`. These are summary statistics for the number of metrics per host hashed to each target in each tier. Specifically:
 
-| Name | Description |
-| ---- | ----------- |
-| `avg` | Average number of metrics per host hashed to target in a tier. |
-| `min` | Minimum number of metrics per host hashed to target in a tier. |
-| `max` | Maximum number of metrics per host hashed to target in a tier. |
-| `95e` | 95th percentile number of metrics per host hashed to target in a tier. |
-| `length` | Total number of hosts hashed to a target in a tier. |
-| `sum` | Total number of metrics under all hosts hashed to a target in a tier. |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| `avg` | Gauge | Average number of metrics per host hashed to target in a tier. |
+| `min` | Gauge | Minimum number of metrics per host hashed to target in a tier. |
+| `max` | Gauge | Maximum number of metrics per host hashed to target in a tier. |
+| `95e` | Gauge | 95th percentile number of metrics per host hashed to target in a tier. |
+| `length` | Gauge | Total number of hosts hashed to a target in a tier. |
+| `sum` | Gauge | Total number of metrics under all hosts hashed to a target in a tier. |
 
 #### Noodle
 
-Noodle exposes many metrics about what it's doing. Here is a description of what those metrics are:
+Noodle exposes many metrics about what it's doing. This is what those metrics are:
 
-| Name | Description |
-| ---- | ----------- |
-| `noodle.fetch.bytes.proxied` | Number of bytes proxied from targets to Noodle clients. |
-| `noodle.fetch.target.requests.{{ target }}` | Number of requests proxied to a target. |
-| `noodle.fetch.target.response.codes.{{ code }}` | Number of responses served to Noodle clients with a specific status code. |
-| `noodle.fetch.tier.requests.{{ tier }}` | Number of responses routed and proxied from a tier. |
-| `noodle.errors.fetch.con.get` | Unsuccessful hash lookups for a name. There should be a corresponding log entry for every counter increment. |
-| `noodle.errors.fetch.http.get` | Unsuccessful HTTP GET requests to a target. |
-| `noodle.errors.fetch.ioutil.readall` | Unsuccessful reads of response from a target. |
-| `noodle.errors.fetch.json.unmarshal` | Unsuccessful unmarshalings of JSON in response from target. |
-| `noodle.errors.fetch.json.marshal` | Unsuccessful marshaling of JSON for response to Noodle client. |
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| `noodle.fetch.bytes.proxied` | Counter | Number of bytes proxied from targets to Noodle clients. |
+| `noodle.fetch.target.requests.{{ target }}` | Counter | Number of requests proxied to a target. |
+| `noodle.fetch.target.response.codes.{{ code }}` | Counter | Number of responses served to Noodle clients with a specific status code. |
+| `noodle.fetch.tier.requests.{{ tier }}` | Counter | Number of responses routed and proxied from a tier. |
+| `noodle.errors.fetch.con.get` | Counter | Unsuccessful hash lookups for a name. There should be a corresponding log entry for every counter increment. |
+| `noodle.errors.fetch.http.get` | Counter | Unsuccessful HTTP GET requests to a target. |
+| `noodle.errors.fetch.ioutil.readall` | Counter | Unsuccessful reads of response from a target. |
+| `noodle.errors.fetch.json.unmarshal` | Counter | Unsuccessful unmarshalings of JSON in response from target. |
+| `noodle.errors.fetch.json.marshal` | Counter | Unsuccessful marshaling of JSON for response to Noodle client. |
 
 ### What performance can I expect?
 
@@ -147,7 +139,7 @@ Bulletproof runs Coco in production on c3.large instances with [GOMAXPROCS](http
 
 Coco is heavily concurrent. Coco's throughput depends very heavily on the number of cores available to execute Go threads.
 
-The default GOMAXPROCS is 1, which will give you poor performance as soon as you start sending a good volume of metrics to Coco. If you use Coco seriously, you need to tune GOMAXPROC for your environment. As a starting point, the init scripts shipped with Coco set GOMAXPROCS to 16.
+The default GOMAXPROCS is 1, which will give you poor performance as soon as you start sending a reasonable volume of metrics to Coco. If you use Coco seriously, you need to tune GOMAXPROC for your environment. As a starting point, the init scripts shipped with Coco set GOMAXPROCS to 16.
 
 ### How it will break
 
@@ -162,7 +154,7 @@ These are some good indicators of problems:
 
 #### Functionality
 
-Coco will run as many pre-flight checks as possible on boot to determine if the configuration is not right, and exit immediately. Check stdout for any errors or warnings.
+Coco will run as many pre-flight checks as possible on boot to determine if the configuration is not right, and exit immediately if so. Check stdout for any errors or warnings.
 
 When Coco boots, it attempts to establish a UDP connection to a target. If Coco cannot establish a connection to the target, it will not dispatch any packets to that target. You can see evidence of this behaviour by checking the `coco.errors.send.dial` metric. If this is greater than 0, samples will not be dispatched to a target, and you must restart Coco for it to re-initialise the connection to the target.
 
