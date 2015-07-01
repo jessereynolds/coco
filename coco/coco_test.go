@@ -119,7 +119,7 @@ func TestGenerateMetricName(t *testing.T) {
 }
 
 func TestTierInitialisation(t *testing.T) {
-	// Setup sender
+	// Setup tiers
 	tierConfig := make(map[string]coco.TierConfig)
 	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:29000", "a.example:29000", "b.example:29000", "c.example:29000"}}
 
@@ -130,6 +130,7 @@ func TestTierInitialisation(t *testing.T) {
 	}
 	coco.BuildTiers(&tiers)
 
+	// Test
 	for _, tier := range tiers {
 		expected := len(tier.Targets)
 		actual := len(tier.Hash.Members())
