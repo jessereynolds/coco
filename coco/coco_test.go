@@ -118,6 +118,31 @@ func TestGenerateMetricName(t *testing.T) {
 	}
 }
 
+func TestTierInitialisation(t *testing.T) {
+	// Setup sender
+	tierConfig := make(map[string]coco.TierConfig)
+	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:29000", "a.example:29000", "b.example:29000", "c.example:29000"}}
+
+	var tiers []coco.Tier
+	for k, v := range tierConfig {
+		tier := coco.Tier{Name: k, Targets: v.Targets}
+		tiers = append(tiers, tier)
+	}
+	coco.BuildTiers(&tiers)
+
+	for _, tier := range tiers {
+		expected := len(tier.Targets)
+		actual := len(tier.Hash.Members())
+		if actual != expected {
+			t.Errorf("Expected %d hash members, got %d\n", expected, actual)
+			t.Logf("Connections: %+v\n", tier.Connections)
+			t.Logf("Mappings: %+v\n", tier.Mappings)
+			t.Logf("Shadows: %+v\n", tier.Shadows)
+			t.Logf("Hash.Members(): %+v\n", tier.Hash.Members())
+		}
+	}
+}
+
 /*
 Send
  - Hash lookup

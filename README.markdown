@@ -326,7 +326,7 @@ Coco exposes many metrics about what it's doing. This is what those metrics are:
 | `coco.errors.fetch.receive` | Counter | Unsuccessful collectd packet decoding in Listen. |
 | `coco.errors.filter.unhandled` | Counter | Unhandled panics in Filter. |
 | `coco.errors.lookup.hash.get` | Counter | Unsuccessful hash lookups for a name. There should be a corresponding log entry for every counter increment. |
-| `coco.errors.send.dial` | Counter | Unsuccessful connection to target on boot. There should be a corresponding log entry for every counter increment. |
+| `coco.errors.buildtiers.dial` | Counter | Unsuccessful connection to target on boot. There should be a corresponding log entry for every counter increment. |
 | `coco.errors.send.write` | Counter | Unsuccessful dispatch of sample to a target. |
 
 There is also a bunch of keys under `coco.hash.metrics_per_host.{{ tier }}.{{ target }}`. These are summary statistics for the number of metrics per host hashed to each target in each tier. Specifically:
