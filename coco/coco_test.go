@@ -274,7 +274,7 @@ func TestVirtualReplicasMagic(t *testing.T) {
 	go coco.Api(apiConfig, &tiers, &blacklisted)
 	poll(t, apiConfig.Bind)
 
-	// Fetch exposed expvars
+	// Fetch exposed tiers
 	resp, err := http.Get("http://127.0.0.1:26840/tiers")
 	if err != nil {
 		t.Fatalf("HTTP GET failed: %s", err)
