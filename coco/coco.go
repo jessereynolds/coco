@@ -259,6 +259,7 @@ func BuildTiers(tiers *[]Tier) {
 func Send(tiers *[]Tier, filtered chan collectd.Packet) {
 	// Initialise the error counts
 	errorCounts.Add("send.write", 0)
+	errorCounts.Add("send.disconnected", 0)
 
 	BuildTiers(tiers)
 
@@ -282,21 +283,25 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet) {
 
 			// Dispatch the metric
 			payload := Encode(packet)
-			_, err = tier.Connections[target].Write(payload)
-			if err != nil {
-				errorCounts.Add("send.write", 1)
-				continue
+			conn := tier.Connections[target]
+			if conn != nil {
+				_, err = tier.Connections[target].Write(payload)
+				if err != nil {
+					errorCounts.Add("send.write", 1)
+					continue
+				}
+				// Update counters
+				hostCounts.Get(target).(*expvar.Int).Set(int64(len(tier.Mappings[target])))
+				mc := 0
+				for _, v := range tier.Mappings[target] {
+					mc += len(v)
+				}
+				metricCounts.Get(target).(*expvar.Int).Set(int64(mc))
+				sendCounts.Add(target, 1)
+				sendCounts.Add("total", 1)
+			} else {
+				errorCounts.Add("send.disconnected", 1)
 			}
-
-			// Update counters
-			hostCounts.Get(target).(*expvar.Int).Set(int64(len(tier.Mappings[target])))
-			mc := 0
-			for _, v := range tier.Mappings[target] {
-				mc += len(v)
-			}
-			metricCounts.Get(target).(*expvar.Int).Set(int64(mc))
-			sendCounts.Add(target, 1)
-			sendCounts.Add("total", 1)
 		}
 	}
 }
