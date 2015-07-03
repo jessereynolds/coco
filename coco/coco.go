@@ -197,7 +197,7 @@ func Blacklist(updates chan BlacklistItem, blacklisted *map[string]map[string]in
 // BuildTiers sets up tiers so it's ready to dispatch metrics
 func BuildTiers(tiers *[]Tier) {
 	// Initialise the error counts
-	errorCounts.Add("send.dial", 0)
+	errorCounts.Add("buildtiers.dial", 0)
 
 	for i, tier := range *tiers {
 		// The consistent hashing function used to map sample hosts to targets
@@ -217,24 +217,25 @@ func BuildTiers(tiers *[]Tier) {
 		for it, t := range tier.Targets {
 			conn, err := net.Dial("udp", t)
 			if err != nil {
-				log.Printf("error: send: %s: %+v", t, err)
-				errorCounts.Add("send.dial", 1)
+				log.Printf("[warning] BuildTiers: Couldn't establish connection to '%s': %s", t, err)
+				log.Printf("[warning] BuildTiers: Adding %s to hash anyway, so it's consistent.", t)
+				errorCounts.Add("buildtiers.dial", 1)
 			} else {
 				// Only add the target to the hash if the connection can initially be established
 				re := regexp.MustCompile("^(127.|localhost)")
 				if re.FindStringIndex(conn.RemoteAddr().String()) != nil {
-					log.Printf("warning: %s is local. You may be looping metrics back to coco!", conn.RemoteAddr())
-					log.Printf("warning: send dutifully adding %s to hash anyway, but beware!", conn.RemoteAddr())
+					log.Printf("[warning]: BuildTiers: %s is local. You may be looping metrics back to Coco!", conn.RemoteAddr())
+					log.Printf("[warning]: BuildTiers: Dutifully adding %s to hash anyway, but beware of loops.", conn.RemoteAddr())
 				}
-				(*tiers)[i].Connections[t] = conn
-				(*tiers)[i].Mappings[t] = make(map[string]map[string]int64)
-				// Setup a shadow mapping so we get a more even hash distribution
-				shadow_t := string(it)
-				(*tiers)[i].Shadows[shadow_t] = t
-				(*tiers)[i].Hash.Add(shadow_t)
-				metricCounts.Set(t, &expvar.Int{})
-				hostCounts.Set(t, &expvar.Int{})
 			}
+			(*tiers)[i].Connections[t] = conn
+			(*tiers)[i].Mappings[t] = make(map[string]map[string]int64)
+			// Setup a shadow mapping so we get a more even hash distribution
+			shadow_t := string(it)
+			(*tiers)[i].Shadows[shadow_t] = t
+			(*tiers)[i].Hash.Add(shadow_t)
+			metricCounts.Set(t, &expvar.Int{})
+			hostCounts.Set(t, &expvar.Int{})
 		}
 	}
 
@@ -245,12 +246,12 @@ func BuildTiers(tiers *[]Tier) {
 		for _, shadow_t := range hash.Members() {
 			targets = append(targets, tier.Shadows[shadow_t])
 		}
-		log.Printf("info: send: tier '%s' hash ring has %d members: %s", tier.Name, len(hash.Members()), targets)
+		log.Printf("[info]: BuildTiers: tier '%s' hash ring has %d members: %s", tier.Name, len(hash.Members()), targets)
 	}
 
 	for _, tier := range *tiers {
 		if len(tier.Connections) == 0 {
-			log.Fatalf("fatal: send: no targets available in tier %s", tier.Name)
+			log.Fatalf("[fatal]: BuildTiers: no targets available in tier '%s'", tier.Name)
 		}
 	}
 }
@@ -258,6 +259,7 @@ func BuildTiers(tiers *[]Tier) {
 func Send(tiers *[]Tier, filtered chan collectd.Packet) {
 	// Initialise the error counts
 	errorCounts.Add("send.write", 0)
+	errorCounts.Add("send.disconnected", 0)
 
 	BuildTiers(tiers)
 
@@ -281,21 +283,25 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet) {
 
 			// Dispatch the metric
 			payload := Encode(packet)
-			_, err = tier.Connections[target].Write(payload)
-			if err != nil {
-				errorCounts.Add("send.write", 1)
-				continue
+			conn := tier.Connections[target]
+			if conn != nil {
+				_, err = tier.Connections[target].Write(payload)
+				if err != nil {
+					errorCounts.Add("send.write", 1)
+					continue
+				}
+				// Update counters
+				hostCounts.Get(target).(*expvar.Int).Set(int64(len(tier.Mappings[target])))
+				mc := 0
+				for _, v := range tier.Mappings[target] {
+					mc += len(v)
+				}
+				metricCounts.Get(target).(*expvar.Int).Set(int64(mc))
+				sendCounts.Add(target, 1)
+				sendCounts.Add("total", 1)
+			} else {
+				errorCounts.Add("send.disconnected", 1)
 			}
-
-			// Update counters
-			hostCounts.Get(target).(*expvar.Int).Set(int64(len(tier.Mappings[target])))
-			mc := 0
-			for _, v := range tier.Mappings[target] {
-				mc += len(v)
-			}
-			metricCounts.Get(target).(*expvar.Int).Set(int64(mc))
-			sendCounts.Add(target, 1)
-			sendCounts.Add("total", 1)
 		}
 	}
 }

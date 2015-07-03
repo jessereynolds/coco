@@ -118,6 +118,99 @@ func TestGenerateMetricName(t *testing.T) {
 	}
 }
 
+func TestTierInitialisation(t *testing.T) {
+	// Setup tiers
+	tierConfig := make(map[string]coco.TierConfig)
+	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:29000", "a.example:29000", "b.example:29000", "c.example:29000"}}
+
+	var tiers []coco.Tier
+	for k, v := range tierConfig {
+		tier := coco.Tier{Name: k, Targets: v.Targets}
+		tiers = append(tiers, tier)
+	}
+	coco.BuildTiers(&tiers)
+
+	// Test
+	for _, tier := range tiers {
+		expected := len(tier.Targets)
+		actual := len(tier.Hash.Members())
+		if actual != expected {
+			t.Errorf("Expected %d hash members, got %d\n", expected, actual)
+			t.Logf("Connections: %+v\n", tier.Connections)
+			t.Logf("Mappings: %+v\n", tier.Mappings)
+			t.Logf("Shadows: %+v\n", tier.Shadows)
+			t.Logf("Hash.Members(): %+v\n", tier.Hash.Members())
+		}
+	}
+}
+
+func TestSendWhenMissingConnection(t *testing.T) {
+	// Setup tiers
+	tierConfig := make(map[string]coco.TierConfig)
+	tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:29000", "a.example:29000", "b.example:29000", "c.example:29000"}}
+
+	var tiers []coco.Tier
+	for k, v := range tierConfig {
+		tier := coco.Tier{Name: k, Targets: v.Targets}
+		tiers = append(tiers, tier)
+	}
+
+	// Launch Api so we can query expvars
+	apiConfig := coco.ApiConfig{
+		Bind: "127.0.0.1:26880",
+	}
+	blacklisted := map[string]map[string]int64{}
+	go coco.Api(apiConfig, &tiers, &blacklisted)
+
+	poll(t, apiConfig.Bind)
+
+	// Launch Send so we can test dispatch behaviour
+	filtered := make(chan collectd.Packet)
+	go coco.Send(&tiers, filtered)
+
+	// Query the expvars
+	var actual float64
+	var expected float64
+	var vars map[string]interface{}
+	vars = fetchExpvar(t, apiConfig.Bind)
+	actual = vars["coco"].(map[string]interface{})["errors"].(map[string]interface{})["send.disconnected"].(float64)
+	expected = 0
+	if actual != expected {
+		t.Fatalf("Expected coco.errors.send.disconnected to be %d, was %d", expected, actual)
+	}
+
+	// Dispatch a single packet
+	send := collectd.Packet{
+		Hostname: "foo",
+		Plugin:   "load",
+		Type:     "load",
+	}
+	filtered <- send
+
+	// Check the failure count has increased
+	vars = fetchExpvar(t, apiConfig.Bind)
+	actual = vars["coco"].(map[string]interface{})["errors"].(map[string]interface{})["send.disconnected"].(float64)
+	expected = 1
+	if actual != expected {
+		t.Fatalf("Expected coco.errors.send.disconnected to be %d, was %d", expected, actual)
+	}
+}
+
+func fetchExpvar(t *testing.T, bind string) (result map[string]interface{}) {
+	resp, err := http.Get("http://" + bind + "/debug/vars")
+	if err != nil {
+		t.Fatalf("HTTP GET failed: %s", err)
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		t.Errorf("Error when decoding JSON %+v.", err)
+		t.Errorf("Response body: %s", string(body))
+		t.FailNow()
+	}
+	return result
+}
+
 /*
 Send
  - Hash lookup
@@ -248,7 +341,7 @@ func TestVirtualReplicasMagic(t *testing.T) {
 	go coco.Api(apiConfig, &tiers, &blacklisted)
 	poll(t, apiConfig.Bind)
 
-	// Fetch exposed expvars
+	// Fetch exposed tiers
 	resp, err := http.Get("http://127.0.0.1:26840/tiers")
 	if err != nil {
 		t.Fatalf("HTTP GET failed: %s", err)
