@@ -17,7 +17,13 @@ There are two parts to Coco:
 
 ## Quick start
 
-**FIXME: add instructions on downloading released binaries**
+Download and unpack the [latest release from GitHub](https://github.com/bulletproofnetworks/coco/releases). For example:
+
+```
+wget https://github.com/bulletproofnetworks/coco/releases/download/v0.9.0/coco-0.9.0.tar.gz
+tar zxvf coco-0.9.0.tar.gz
+cd coco
+```
 
 ### Coco
 
@@ -215,6 +221,7 @@ Options:
 
  - `bind`: address to serve HTTP requests.
  - `proxy_timeout`: timeout for HTTP requests to storage targets.
+ - `remote_port`: port to connect to all targets when proxying.
 
 Example configuration:
 
@@ -399,40 +406,45 @@ Both of these checks assume you're using collectd to gather Coco's expvar metric
 
 ## Developing
 
+The ensure a consistent experience, the development and testing process is wrapped by Docker.
+
 Run up a development copy of Coco with:
 
-```
+``` bash
 git clone git@github.com:bulletproofnetworks/coco.git
 cd coco
-# Ensure Marksman is added to your GOPATH, so the servers build.
-mkdir -p $GOPATH/src/github.com
-ln -sf $(pwd)/.. $GOPATH/src/github.com/bulletproofnetworks
-# Setup development helpers.
-bundle
-cp coco.sample.conf coco.test.conf
-# edit targets in coco.test.conf
-foreman start
+cp coco.sample.conf coco.conf # edit tiers in coco.conf if needed
+make run
 ```
 
-The `foreman start` brings up a copy of both Coco and Noodle.
-
-We wrap the `go run` command with foreman, because we unfortunately have to muck
-with your `GOPATH` to vendor depedencies. We vendor everything so you don't have
-to worry about running `go get` to get every dependency. It's the
-[recommended pattern](http://peter.bourgon.org/go-in-production/#dependency-management),
-and we frequently have problems where [gopkg.in](http://gopkg.in) goes down.
+We vendor everything so you don't have to worry about pulling dependencies off the internet. It's a [recommended pattern](http://peter.bourgon.org/go-in-production/#dependency-management), and we frequently have problems where [gopkg.in](http://gopkg.in) goes down.
 
 To push test data into Coco, run:
 
-```
+``` bash
 collectd-tg -d localhost -H 1500 -p 50
 ```
 
-Both Coco and Noodle expose [expvar](http://golang.org/pkg/expvar/) counters
-that track the internal behaviour of each server:
+Both Coco and Noodle expose [expvar](http://golang.org/pkg/expvar/) counters that track the internal behaviour of each server:
 
  - **Coco**: http://localhost:9090/debug/vars
  - **Noodle**: http://localhost:9080/debug/vars
+
+To run the tests:
+
+``` bash
+make test
+```
+
+## Releasing
+
+To build a release for publishing to GitHub, run:
+
+``` bash
+make release
+```
+
+This produces a tarball at `./coco.tar.gz`, which you can upload to the GitHub repo as a release artifact.
 
 ## Contributing
 

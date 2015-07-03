@@ -1,0 +1,5 @@
+# Development config
+coco.conf
+
+# Build artifacts
+coco.tar.gz
