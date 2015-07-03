@@ -78,7 +78,7 @@ func calculateTargetSummaryStats(tiers *[]Tier) {
 func Measure(config MeasureConfig, chans map[string]chan collectd.Packet, tiers *[]Tier) {
 	tick := time.NewTicker(config.Interval()).C
 	for n, _ := range chans {
-		log.Println("info: measure: measuring queue", n)
+		log.Println("[info] Measure: measuring queue", n)
 		queueCounts.Set(n, &expvar.Int{})
 	}
 	for {
@@ -102,17 +102,17 @@ func Listen(config ListenConfig, c chan collectd.Packet) {
 
 	laddr, err := net.ResolveUDPAddr("udp", config.Bind)
 	if err != nil {
-		log.Fatalln("fatal: failed to resolve address", err)
+		log.Fatalln("[fatal] Listen: failed to resolve address", err)
 	}
 
 	conn, err := net.ListenUDP("udp", laddr)
 	if err != nil {
-		log.Fatalln("fatal: failed to listen", err)
+		log.Fatalln("[fatal] Listen: failed to listen", err)
 	}
 
 	types, err := collectd.TypesDBFile(config.Typesdb)
 	if err != nil {
-		log.Fatalln("fatal: failed to parse types.db", err)
+		log.Fatalln("[fatal] Listen: failed to parse types.db", err)
 	}
 
 	for {
@@ -122,7 +122,7 @@ func Listen(config ListenConfig, c chan collectd.Packet) {
 
 		n, err := conn.Read(buf[:])
 		if err != nil {
-			log.Println("error: Failed to receive packet", err)
+			log.Println("[error] Listen: Failed to receive packet", err)
 			errorCounts.Add("fetch.receive", 1)
 			continue
 		}
@@ -224,8 +224,8 @@ func BuildTiers(tiers *[]Tier) {
 				// Only add the target to the hash if the connection can initially be established
 				re := regexp.MustCompile("^(127.|localhost)")
 				if re.FindStringIndex(conn.RemoteAddr().String()) != nil {
-					log.Printf("[warning]: BuildTiers: %s is local. You may be looping metrics back to Coco!", conn.RemoteAddr())
-					log.Printf("[warning]: BuildTiers: Dutifully adding %s to hash anyway, but beware of loops.", conn.RemoteAddr())
+					log.Printf("[warning] BuildTiers: %s is local. You may be looping metrics back to Coco!", conn.RemoteAddr())
+					log.Printf("[warning] BuildTiers: Dutifully adding %s to hash anyway, but beware of loops.", conn.RemoteAddr())
 				}
 			}
 			(*tiers)[i].Connections[t] = conn
@@ -246,12 +246,12 @@ func BuildTiers(tiers *[]Tier) {
 		for _, shadow_t := range hash.Members() {
 			targets = append(targets, tier.Shadows[shadow_t])
 		}
-		log.Printf("[info]: BuildTiers: tier '%s' hash ring has %d members: %s", tier.Name, len(hash.Members()), targets)
+		log.Printf("[info] BuildTiers: tier '%s' hash ring has %d members: %s", tier.Name, len(hash.Members()), targets)
 	}
 
 	for _, tier := range *tiers {
 		if len(tier.Connections) == 0 {
-			log.Fatalf("[fatal]: BuildTiers: no targets available in tier '%s'", tier.Name)
+			log.Fatalf("[fatal] BuildTiers: no targets available in tier '%s'", tier.Name)
 		}
 	}
 }
@@ -271,7 +271,7 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet) {
 			// Get the target we should forward the packet to
 			target, err := tier.Lookup(packet.Hostname)
 			if err != nil {
-				log.Fatal(err)
+				log.Fatalf("[fatal] Send: couldn't lookup target: %s\n", err)
 			}
 
 			// Update metadata
@@ -287,6 +287,9 @@ func Send(tiers *[]Tier, filtered chan collectd.Packet) {
 			if conn != nil {
 				_, err = tier.Connections[target].Write(payload)
 				if err != nil {
+					// Increment counter, but don't log because that will fill
+					// up the disk when a storage target goes away during a
+					// network partition.
 					errorCounts.Add("send.write", 1)
 					continue
 				}
@@ -432,9 +435,9 @@ func TierLookup(params martini.Params, req *http.Request, tiers *[]Tier) []byte 
 		for _, tier := range *tiers {
 			target, err := tier.Lookup(name)
 			if err != nil {
+				log.Printf("[error] TierLookup: %s: %+v\n", name, err)
 				defer func() {
 					errorCounts.Add("lookup.hash.get", 1)
-					log.Printf("error: api: %s: %+v\n", name, err)
 				}()
 			}
 			defer func() {
@@ -511,8 +514,8 @@ func Api(config ApiConfig, tiers *[]Tier, blacklisted *map[string]map[string]int
 		ExpvarHandler(w, r)
 	})
 
-	log.Printf("info: binding web server to %s", config.Bind)
-	log.Fatal(http.ListenAndServe(config.Bind, m))
+	log.Printf("[info] API: binding web server to %s", config.Bind)
+	log.Fatalf("[fatal] API: HTTP handler crashed: %s", http.ListenAndServe(config.Bind, m))
 }
 
 type Config struct {
@@ -596,6 +599,7 @@ type Tier struct {
 func (t *Tier) Lookup(name string) (string, error) {
 	shadow_t, err := t.Hash.Get(name)
 	if err != nil {
+		log.Printf("[error] Lookup: failed lookup of '%s' in hash: %s", name, err)
 		return "", err
 	}
 	target := t.Shadows[shadow_t]

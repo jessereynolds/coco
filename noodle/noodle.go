@@ -33,7 +33,7 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 	errorCounts.Add("fetch.ioutil.readall", 0)
 
 	if len(fetch.Bind) == 0 {
-		log.Fatal("fatal: No address configured to bind web server.")
+		log.Fatal("[fatal] Fetch: No address configured to bind web server.")
 	}
 
 	coco.BuildTiers(tiers)
@@ -44,10 +44,8 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 			// Lookup the hostname in the tier's hash. Work out where we should proxy to.
 			target, err := tier.Lookup(params["hostname"])
 			if err != nil {
-				defer func() {
-					fmt.Printf("%+v\n", errorCounts)
-					errorCounts.Add("fetch.con.get", 1)
-				}()
+				log.Printf("[info] Fetch: couldn't lookup target: %s\n", err)
+				defer func() { errorCounts.Add("fetch.con.get", 1) }()
 				return errorJSON(err)
 			}
 
@@ -62,13 +60,12 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 			url := "http://" + host + req.RequestURI
 			client := &http.Client{Timeout: fetch.Timeout()}
 			resp, err := client.Get(url)
+			defer resp.Body.Close()
 			if err != nil {
-				defer func() {
-					errorCounts.Add("fetch.http.get", 1)
-				}()
+				log.Printf("[info] Fetch: couldn't perform GET to target: %s\n", err)
+				defer func() { errorCounts.Add("fetch.http.get", 1) }()
 				return errorJSON(err)
 			}
-			defer resp.Body.Close()
 
 			// TODO(lindsay): count successful requests to each tier
 			// TODO(lindsay): count failed requests to each tier
@@ -76,6 +73,7 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 			// Read the body, check for any errors
 			body, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
+				log.Printf("[info] Fetch: couldn't read response from target: %s\n", err)
 				defer func() { errorCounts.Add("fetch.ioutil.readall", 1) }()
 				return errorJSON(err)
 			}
@@ -89,12 +87,14 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 			var data map[string]interface{}
 			err = json.Unmarshal(body, &data)
 			if err != nil {
+				log.Printf("[info] Fetch: couldn't unmarshal JSON from target: %s\n", err)
 				defer func() { errorCounts.Add("fetch.json.unmarshal", 1) }()
 				return errorJSON(err)
 			}
 			data["_meta"] = meta
 			bm, err := json.Marshal(data)
 			if err != nil {
+				log.Printf("[info] Fetch: couldn't re-marshal target JSON for client: %s\n", err)
 				defer func() { errorCounts.Add("fetch.json.marshal", 1) }()
 				return errorJSON(err)
 			}
@@ -124,8 +124,8 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 		return coco.TierLookup(params, req, tiers)
 	})
 
-	log.Printf("info: binding web server to %s", fetch.Bind)
-	log.Fatal(http.ListenAndServe(fetch.Bind, m))
+	log.Printf("[info] Fetch: binding web server to %s", fetch.Bind)
+	log.Fatalf("[fatal] Fetch: HTTP handler crashed: %s", http.ListenAndServe(config.Bind, m))
 }
 
 var (
