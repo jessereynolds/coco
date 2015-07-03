@@ -26,13 +26,13 @@ func errorJSON(err error) []byte {
 	return e
 }
 
-func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
+func Fetch(config coco.FetchConfig, tiers *[]coco.Tier) {
 	// Initialise the error counts
 	errorCounts.Add("fetch.con.get", 0)
 	errorCounts.Add("fetch.http.get", 0)
 	errorCounts.Add("fetch.ioutil.readall", 0)
 
-	if len(fetch.Bind) == 0 {
+	if len(config.Bind) == 0 {
 		log.Fatal("[fatal] Fetch: No address configured to bind web server.")
 	}
 
@@ -51,14 +51,14 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 
 			// Construct the URL, and do the GET
 			var host string
-			if len(fetch.RemotePort) > 0 {
+			if len(config.RemotePort) > 0 {
 				// FIXME(lindsay) look up fetch port per-target?
-				host = strings.Split(target, ":")[0] + ":" + fetch.RemotePort
+				host = strings.Split(target, ":")[0] + ":" + config.RemotePort
 			} else {
 				host = strings.Split(target, ":")[0]
 			}
 			url := "http://" + host + req.RequestURI
-			client := &http.Client{Timeout: fetch.Timeout()}
+			client := &http.Client{Timeout: config.Timeout()}
 			resp, err := client.Get(url)
 			defer resp.Body.Close()
 			if err != nil {
@@ -124,7 +124,7 @@ func Fetch(fetch coco.FetchConfig, tiers *[]coco.Tier) {
 		return coco.TierLookup(params, req, tiers)
 	})
 
-	log.Printf("[info] Fetch: binding web server to %s", fetch.Bind)
+	log.Printf("[info] Fetch: binding web server to %s", config.Bind)
 	log.Fatalf("[fatal] Fetch: HTTP handler crashed: %s", http.ListenAndServe(config.Bind, m))
 }
 
