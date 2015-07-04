@@ -19,7 +19,7 @@ release: image
 	rm -rf release
 	echo "Release is at ./coco.tar.gz"
 
-go-release:
+go-release: go-test
 	mkdir -p $(build-path)
 	go build -o $(build-path)/coco coco_server.go
 	go build -o $(build-path)/noodle noodle_server.go
