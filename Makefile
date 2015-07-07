@@ -27,4 +27,6 @@ go-release: go-test
 	go build -o $(build-path)/check_anomalous_coco_send anomalous_coco_send.go
 	cp -av etc $(build-path)
 	cp coco.sample.conf $(build-path)
+	cp README.markdown $(build-path)
+	cp CHANGELOG.md $(build-path)
 	cd /tmp && tar czvf /app/release/coco.tar.gz coco
