@@ -9,11 +9,21 @@ scale your metrics storage infrastructure horizontally.
 There are two parts to Coco:
 
  - **Coco**, a collectd network server that consistently hashes incoming metrics to a ring of storage targets.
- - **Noodle**, a Visage-compatible HTTP proxy that looks up metrics across storage targets.
+ - **Noodle**, a [Visage](http://visage.io)-compatible HTTP proxy that looks up metrics across storage targets.
 
 ## Why Coco?
 
-**FIXME: explain the rationale**
+Coco helps you scale up collectd and RRDtool.
+
+collectd + RRDtool are a very good starting point for gathering and storing system metrics - they are low impact and easy to configure.
+
+As you grow your metrics infrastructure, scaling RRDtool becomes problematic:
+
+ - RRDtool is bound to a single machine, so you have limited options for scaling horizontally, and limited options for ensuring high availability of storage and retrieval.
+ - RRDtool pre-allocates disk space, so you have to provision lots of storage ahead of time.
+ - RRDtool's read/write of data during normal updates can saturate storage IO, even with fast and expensive disks, and software aids like rrdcached.
+
+Coco addresses these problems by distributing metrics to multiple storage nodes at the collectd level, allowing you back your horizontally scalable metrics storage with a simple, fast, and proven metric storage technology (RRDtool).
 
 ## Quick start
 
