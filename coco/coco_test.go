@@ -268,6 +268,70 @@ func TestSend(t *testing.T) {
 	}
 }
 
+func TestSendEncoding(t *testing.T) {
+	// Setup listen
+	listenConfig := coco.ListenConfig{
+		Bind:    "127.0.0.1:25960",
+		Typesdb: "../types.db",
+	}
+	raw := make(chan collectd.Packet, 500)
+	go coco.Listen(listenConfig, raw)
+
+	// Setup sender
+	tierConfig := make(map[string]coco.TierConfig)
+	//tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:25960"}}
+	tierConfig["a"] = coco.TierConfig{Targets: []string{listenConfig.Bind}}
+
+	var tiers []coco.Tier
+	for k, v := range tierConfig {
+		tier := coco.Tier{Name: k, Targets: v.Targets}
+		tiers = append(tiers, tier)
+	}
+
+	filtered := make(chan collectd.Packet)
+	go coco.Send(&tiers, filtered)
+
+	// Dispatch a sample
+	value := collectd.Value{
+		Name:  "shortterm",
+		Type:  uint8(1),
+		Value: 0.5,
+	}
+	sample := collectd.Packet{
+		Hostname: "foo",
+		Plugin:   "load",
+		Type:     "load",
+		Interval: 10,
+		Time:     uint64(time.Now().Unix()),
+		Values:   []collectd.Value{value},
+	}
+	filtered <- sample
+
+	// Breathe a moment so packet works its way through
+	time.Sleep(100 * time.Millisecond)
+	if len(raw) != 1 {
+		t.Errorf("Expected %d packets, got %d\n", 1, len(raw))
+		t.FailNow()
+	}
+
+	// Grab a sample
+	s := <-raw
+	if len(s.Values) != 1 {
+		t.Errorf("Expected %d values in sample, got %d\n", 1, len(s.Values))
+		t.FailNow()
+	}
+
+	v := s.Values[0]
+	t.Logf("%+v\n", v)
+	t.Logf("%+v\n", value)
+	t.Logf("%+v\n", v.Value == value.Value)
+
+	if value.Value != v.Value {
+		t.Errorf("Expected value to be %d, got %d\n", value.Value, v.Value)
+		t.FailNow()
+	}
+}
+
 func TestSendTiers(t *testing.T) {
 	// Setup listen
 	listenConfig := coco.ListenConfig{
