@@ -279,7 +279,6 @@ func TestSendEncodeCounter(t *testing.T) {
 
 	// Setup sender
 	tierConfig := make(map[string]coco.TierConfig)
-	//tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:25960"}}
 	tierConfig["a"] = coco.TierConfig{Targets: []string{listenConfig.Bind}}
 
 	var tiers []coco.Tier
@@ -337,7 +336,7 @@ func TestSendEncodeCounter(t *testing.T) {
 func TestSendEncodeGauge(t *testing.T) {
 	// Setup listen
 	listenConfig := coco.ListenConfig{
-		Bind:    "127.0.0.1:25960",
+		Bind:    "127.0.0.1:25961",
 		Typesdb: "../types.db",
 	}
 	raw := make(chan collectd.Packet, 500)
@@ -345,7 +344,6 @@ func TestSendEncodeGauge(t *testing.T) {
 
 	// Setup sender
 	tierConfig := make(map[string]coco.TierConfig)
-	//tierConfig["a"] = coco.TierConfig{Targets: []string{"127.0.0.1:25960"}}
 	tierConfig["a"] = coco.TierConfig{Targets: []string{listenConfig.Bind}}
 
 	var tiers []coco.Tier
