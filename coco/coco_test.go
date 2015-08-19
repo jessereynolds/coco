@@ -292,9 +292,10 @@ func TestSendEncodeCounter(t *testing.T) {
 
 	// Dispatch a sample
 	value := collectd.Value{
-		Name:  "value",
-		Type:  uint8(0),
-		Value: 161797775,
+		Name:     "value",
+		Type:     uint8(0),
+		TypeName: "counter",
+		Value:    161797775,
 	}
 	sample := collectd.Packet{
 		Hostname:       "foo",
@@ -323,9 +324,8 @@ func TestSendEncodeCounter(t *testing.T) {
 	}
 
 	v := s.Values[0]
-	t.Logf("%+v\n", v)
-	t.Logf("%+v\n", value)
-	t.Logf("%+v\n", v.Value == value.Value)
+	t.Logf("before: %+v\n", value)
+	t.Logf("after:  %+v\n", v)
 
 	if value.Value != v.Value {
 		t.Errorf("Expected value to be %f, got %f\n", value.Value, v.Value)
@@ -357,9 +357,10 @@ func TestSendEncodeGauge(t *testing.T) {
 
 	// Dispatch a sample
 	value := collectd.Value{
-		Name:  "shortterm",
-		Type:  uint8(1),
-		Value: 0.5,
+		Name:     "shortterm",
+		Type:     uint8(1),
+		TypeName: "gauge",
+		Value:    0.5,
 	}
 	sample := collectd.Packet{
 		Hostname: "foo",
@@ -386,9 +387,8 @@ func TestSendEncodeGauge(t *testing.T) {
 	}
 
 	v := s.Values[0]
-	t.Logf("%+v\n", v)
-	t.Logf("%+v\n", value)
-	t.Logf("%+v\n", v.Value == value.Value)
+	t.Logf("before: %+v\n", value)
+	t.Logf("after:  %+v\n", v)
 
 	if value.Value != v.Value {
 		t.Errorf("Expected value to be %d, got %d\n", value.Value, v.Value)
