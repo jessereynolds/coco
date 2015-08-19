@@ -406,9 +406,6 @@ func Encode(packet collectd.Packet) []byte {
 		valueBytes := new(bytes.Buffer)
 
 		switch v.Type {
-		case collectd.TypeGauge:
-			gauge := float64(v.Value)
-			binary.Write(valueBytes, binary.LittleEndian, gauge)
 		case collectd.TypeAbsolute:
 			absolute := uint64(v.Value)
 			binary.Write(valueBytes, binary.BigEndian, absolute)
@@ -418,6 +415,9 @@ func Encode(packet collectd.Packet) []byte {
 		case collectd.TypeDerive:
 			derive := int64(v.Value)
 			binary.Write(valueBytes, binary.BigEndian, derive)
+		case collectd.TypeGauge:
+			gauge := float64(v.Value)
+			binary.Write(valueBytes, binary.LittleEndian, gauge)
 		default:
 			binary.Write(valueBytes, binary.BigEndian, v.Value)
 		}
