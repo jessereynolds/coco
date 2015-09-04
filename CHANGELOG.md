@@ -11,4 +11,10 @@ This project adheres to [Semantic Versioning 2.0.0](http://semver.org/spec/v2.0.
 - Initial release of Coco and Noodle.
 - Added CHANGELOG for a human digestible diff of releases.
 - Provide a coco.sample.conf that should work out of the box without any modifications.
+ 
+## [1.0.1] - 2015-09-07
+
+### Fixed
+
+- Bugfix release to fix broken data for counters.
 
