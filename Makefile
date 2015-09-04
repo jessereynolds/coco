@@ -4,19 +4,18 @@ image:
 	docker build -t coco .
 
 run: image
-	docker run -p 25826:25826/udp -p 9090:9090 -p 9080:9080 -ti coco
+	docker run --name coco -p 25826:25826/udp -p 9090:9090 -p 9080:9080 -ti coco
 
 test: image
-	docker run -ti coco make go-test
+	docker run --name coco -ti coco make go-test
 
 go-test:
 	go test -v coco/coco_test.go
 	go test -v noodle/noodle_test.go
 
 release: image
-	docker run -ti -v $(shell pwd)/release:/app/release coco make go-release
-	cp release/coco.tar.gz .
-	rm -rf release
+	docker run --name coco -ti -v $(shell pwd)/release:/app/release coco make go-release
+	docker cp coco:/app/release/coco.tar.gz .
 	echo "Release is at ./coco.tar.gz"
 
 go-release: go-test
