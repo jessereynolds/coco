@@ -403,15 +403,25 @@ func Encode(packet collectd.Packet) []byte {
 
 	// Then write out the values
 	for _, v := range packet.Values {
-		if v.Type == collectd.TypeGauge {
-			gaugeBytes := new(bytes.Buffer)
-			binary.Write(gaugeBytes, binary.LittleEndian, v.Value)
-			valuesBuf = append(valuesBuf, gaugeBytes.Bytes()...)
-		} else {
-			valueBytes := new(bytes.Buffer)
+		valueBytes := new(bytes.Buffer)
+
+		switch v.Type {
+		case collectd.TypeAbsolute:
+			absolute := uint64(v.Value)
+			binary.Write(valueBytes, binary.BigEndian, absolute)
+		case collectd.TypeCounter:
+			counter := uint64(v.Value)
+			binary.Write(valueBytes, binary.BigEndian, counter)
+		case collectd.TypeDerive:
+			derive := int64(v.Value)
+			binary.Write(valueBytes, binary.BigEndian, derive)
+		case collectd.TypeGauge:
+			gauge := float64(v.Value)
+			binary.Write(valueBytes, binary.LittleEndian, gauge)
+		default:
 			binary.Write(valueBytes, binary.BigEndian, v.Value)
-			valuesBuf = append(valuesBuf, valueBytes.Bytes()...)
 		}
+		valuesBuf = append(valuesBuf, valueBytes.Bytes()...)
 	}
 
 	// type(2) + length(2) + number of values(2) == 6
