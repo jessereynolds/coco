@@ -417,6 +417,7 @@ Both of these checks assume you're using collectd to gather Coco's expvar metric
 ## Developing
 
 The ensure a consistent experience, the development and testing process is wrapped by Docker.
+Some of the tests need concurrency. As bespoken before, GOMAXPROCS shall be set to a decently high number, but not be lower than 2 and the docker running machine needs to have the capability to run at least two things in parallel as well, otherwise the tests will fail.
 
 Run up a development copy of Coco with:
 
@@ -445,6 +446,7 @@ To run the tests:
 ``` bash
 make test
 ```
+Remember to have at least two CPUs configured for your docker machine to run the tests.
 
 ## Releasing
 
